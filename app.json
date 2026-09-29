@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "Rahmat",
+    "slug": "rahmat",
+    "scheme": "rahmat",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "uz.rahmat.habits",
+      "config": { "usesNonExemptEncryption": false }
+    },
+    "android": {
+      "package": "uz.rahmat.habits",
+      "allowBackup": false
+    },
+    "web": { "bundler": "metro", "name": "Rahmat — Kichik qadamlar, go‘zal odatlar", "lang": "uz" },
+    "plugins": [
+      ["expo-notifications", {"color":"#244D40"}],
+      "expo-secure-store",
+      "expo-font"
+    ]
+  }
+}

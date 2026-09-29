@@ -1,0 +1,10 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "types": ["node", "react"],
+    "resolveJsonModule": true,
+    "noUncheckedIndexedAccess": true
+  },
+  "exclude": ["node_modules", "dist", "native-dist"]
+}

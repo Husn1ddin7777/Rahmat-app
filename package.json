@@ -1,0 +1,45 @@
+{
+  "name": "rahmat",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit",
+    "test": "node tests/run.cjs && node --test tests/pwa-shell.test.cjs tests/push-runtime.test.cjs",
+    "export:web": "expo export --platform web && node scripts/build-pwa.cjs",
+    "export:native": "expo export --platform android --platform ios",
+    "preview:pwa": "wrangler dev --port 8083",
+    "deploy:pwa": "npm run export:web && wrangler deploy"
+  },
+  "dependencies": {
+    "@block65/webcrypto-web-push": "2.0.0",
+    "@expo-google-fonts/cormorant-garamond": "^0.4.1",
+    "@expo-google-fonts/dm-sans": "^0.4.2",
+    "@expo/metro-runtime": "~57.0.16",
+    "expo": "~57.0.25",
+    "expo-font": "~57.0.4",
+    "expo-haptics": "~57.0.3",
+    "expo-notifications": "~57.0.21",
+    "expo-secure-store": "~57.0.4",
+    "expo-status-bar": "~57.0.1",
+    "lucide-react-native": "^1.48.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-svg": "15.15.4",
+    "react-native-web": "~0.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "@types/react": "~19.2.2",
+    "fake-indexeddb": "^6.2.5",
+    "tsx": "^4.20.6",
+    "typescript": "~6.0.3",
+    "wrangler": "^4.142.0"
+  }
+}

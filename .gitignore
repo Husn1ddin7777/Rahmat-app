@@ -1,0 +1,16 @@
+node_modules/
+.expo/
+dist/
+native-dist/
+*.log
+.env*
+.worker/
+.wrangler/
+.dev.vars*
+*-vapid.json
+cloudflare-config/
+*.pem
+*.key
+*.p8
+*.p12
+*.mobileprovision
