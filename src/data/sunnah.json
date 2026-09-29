@@ -1,0 +1,87 @@
+{
+  "contentNotice": "Hadislarga tayangan qisqa eslatmalar: matnlar mazmunan bayon qilingan, so‘zma-so‘z iqtibos emas.",
+  "verifiedOn": "2026-09-27",
+  "istighfarNote": {
+    "title": "O‘zingiz tanlagan maqsad",
+    "text": "Rasululloh ﷺ bir kunda Allohdan 100 marta mag‘firat so‘rashlarini aytganlar. Har bir shaxsiy qayd uchun kuniga 5 mahal 100 tadan istig‘for aytish — o‘zingiz tanlagan va o‘zgartirishingiz mumkin bo‘lgan maqsad; keltirilgan hadisda aynan shu jadval belgilanmagan.",
+    "source": "Sahih Muslim 2702a",
+    "url": "https://sunnah.com/muslim:2702a",
+    "supportingSource": "Sahih Muslim 2702b",
+    "supportingUrl": "https://sunnah.com/muslim:2702b",
+    "progressNotice": "Sanoq aytgan istig‘forlaringizni qayd etadi; u mag‘firatning o‘lchovi yoki kafolati emas."
+  },
+  "reminders": [
+    {
+      "id": "small-and-steady",
+      "title": "Kichik, ammo davomli qadam",
+      "text": "Rasululloh ﷺ o‘rgatganlaridek, kuchingiz yetadigan kichik bir yaxshi amalni tanlab, uni davomli bajaring.",
+      "source": "Sahih al-Buxoriy, 6465",
+      "url": "https://sunnah.com/bukhari:6465",
+      "timeCategory": "morning",
+      "contentType": "paraphrase"
+    },
+    {
+      "id": "cheerful-face",
+      "title": "Ochiq chehra bilan",
+      "text": "Bugun birovni ochiq chehra bilan kutib oling: Rasululloh ﷺ bu kichik yaxshilikni ham arzimas sanamaslikni o‘rgatganlar.",
+      "source": "Sahih Muslim 2626",
+      "url": "https://sunnah.com/muslim:2626",
+      "timeCategory": "anytime",
+      "contentType": "paraphrase"
+    },
+    {
+      "id": "good-words",
+      "title": "Yaxshi so‘z ayting",
+      "text": "Gapirishdan oldin o‘ylab ko‘ring: Rasululloh ﷺ o‘rgatganlaridek, yaxshi so‘z ayting yoki sukut saqlang.",
+      "source": "Sahih al-Buxoriy, 6018",
+      "url": "https://sunnah.com/bukhari:6018",
+      "timeCategory": "anytime",
+      "contentType": "paraphrase"
+    },
+    {
+      "id": "mindful-meal",
+      "title": "Allohning nomi bilan boshlang",
+      "text": "Taomni Allohning nomi bilan boshlang, o‘ng qo‘lingiz bilan va oldingizdan yeng — Rasululloh ﷺ shunday o‘rgatganlar.",
+      "source": "Sahih al-Buxoriy, 5376",
+      "url": "https://sunnah.com/bukhari:5376",
+      "timeCategory": "mealtime",
+      "contentType": "paraphrase"
+    },
+    {
+      "id": "choose-gentleness",
+      "title": "Muloyimlikni tanlang",
+      "text": "Keyingi suhbatingizda muloyim bo‘ling: Rasululloh ﷺ Alloh muloyimlikni sevishini aytganlar.",
+      "source": "Sahih Muslim 2593",
+      "url": "https://sunnah.com/muslim:2593",
+      "timeCategory": "anytime",
+      "contentType": "paraphrase"
+    },
+    {
+      "id": "help-at-home",
+      "title": "Yaxshilik uydan boshlanadi",
+      "text": "Bugun uy ishlaridan biriga yordam bering: Rasululloh ﷺ ham o‘z oilalarining xizmatida bo‘lganlar.",
+      "source": "Sahih al-Buxoriy, 676",
+      "url": "https://sunnah.com/bukhari:676",
+      "timeCategory": "evening",
+      "contentType": "paraphrase"
+    },
+    {
+      "id": "clear-the-way",
+      "title": "Yo‘ldagi bir yaxshilik",
+      "text": "Imkon bo‘lsa, yo‘ldagi zararli narsani xavfsiz olib tashlang: Rasululloh ﷺ buni ham sadaqa deb ta’riflaganlar.",
+      "source": "Sahih al-Buxoriy, 2989",
+      "url": "https://sunnah.com/bukhari:2989",
+      "timeCategory": "daytime",
+      "contentType": "paraphrase"
+    },
+    {
+      "id": "moment-of-istighfar",
+      "title": "Istig‘for uchun bir lahza",
+      "text": "Bir lahza to‘xtab, Allohdan mag‘firat so‘rang: Rasululloh ﷺ bir kunda 100 marta istig‘for aytishlarini bildirganlar.",
+      "source": "Sahih Muslim 2702a",
+      "url": "https://sunnah.com/muslim:2702a",
+      "timeCategory": "anytime",
+      "contentType": "paraphrase"
+    }
+  ]
+}
