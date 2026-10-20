@@ -11,7 +11,9 @@ Live PWA: **https://rahmat.husniddinizzatullayev7777.workers.dev**. Deployed on 
 - **Muhosaba:** optional names and notes, pause/reactivate entries, and delete an entry. Maximum 20 entries, including archived entries. Keeps the latest 30 recorded days of progress.
 - **Eslatmalar:** five editable times, a daytime window, 1–3 random Sunnah reminders per day, permission handling, and a test notification.
 
-The name Rahmat and bundle IDs are working choices. This is an implemented first version, not an App Store release or an installable APK/IPA.
+Android APK: **https://github.com/Husn1ddin7777/Rahmat-app/releases/latest/download/Rahmat.apk** (built automatically from `main`; see [Android APK](#android-apk)).
+
+The name Rahmat and bundle IDs are working choices. This is an implemented first version, not an App Store or Google Play release.
 
 ## Run it
 
@@ -36,7 +38,18 @@ npm run export:native # Android and iOS JavaScript/Hermes bundles
 
 The web version is now an installable PWA with durable local IndexedDB state, an offline app shell, and a Web Push service. See [PWA-SETUP.md](./PWA-SETUP.md) for iPhone installation and the one-time Cloudflare deployment. It requires a live HTTPS origin and configured VAPID secrets before background notifications work. Browser storage is not app-encrypted.
 
-## Try an installable build
+## Android APK
+
+The [Android APK workflow](./.github/workflows/android-apk.yml) runs on GitHub's servers; no Expo account or local Android setup is needed. It typechecks and tests the project, generates the native Android project with `expo prebuild`, and runs a Gradle release build for ARM phones (`armeabi-v7a`, `arm64-v8a`).
+
+- **Pull requests:** the APK is attached to the workflow run as an artifact for checking.
+- **`main`:** the APK is also published as a GitHub Release named `Rahmat.apk`. The link above always serves the newest one.
+- **Version code:** each build uses the workflow run number, so a newer APK installs as an update and keeps the app's data.
+- **Signing:** builds are signed with the standard React Native debug key from the Expo template. That is fine for sideloading test builds, but the key is public. Switch to a private release key (stored as a GitHub secret) before wide distribution or Google Play; that switch requires one uninstall and reinstall.
+
+To install: open the link on the Android phone, download `Rahmat.apk`, open it, and allow installs from that source when Android asks.
+
+## Other installable builds (EAS)
 
 The preview profile is configured in `eas.json`. Creating a native binary requires your Expo account and, for iOS physical devices, the relevant Apple signing setup. Before distribution, choose your own unique bundle identifiers in `app.json`; `uz.rahmat.habits` is a placeholder.
 

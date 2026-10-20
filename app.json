@@ -13,11 +13,21 @@
     },
     "android": {
       "package": "uz.rahmat.habits",
-      "allowBackup": false
+      "allowBackup": false,
+      "icon": "./public/icons/icon-512.png",
+      "adaptiveIcon": {
+        "foregroundImage": "./public/icons/icon-maskable-512.png",
+        "backgroundColor": "#244D40"
+      },
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ]
     },
     "web": { "bundler": "metro", "name": "Rahmat — Kichik qadamlar, go‘zal odatlar", "lang": "uz" },
     "plugins": [
-      ["expo-notifications", {"color":"#244D40"}],
+      ["expo-notifications", {"color":"#244D40", "icon":"./public/icons/badge-96.png"}],
       "expo-secure-store",
       "expo-font"
     ]
