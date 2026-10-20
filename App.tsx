@@ -17,7 +17,6 @@ import { clearState, loadState, saveState } from './src/services/storage';
 import { ReminderResult, ReminderSettings, getTestNotificationStatus, sendTestNotification, subscribeToReminderOpen, syncReminders } from './src/services/notifications';
 import { colors as c, fonts, s } from './src/theme';
 import { getPwaState, preparePwa } from './src/services/pwa';
-import { saveReminderSettings } from './src/services/reminder-settings';
 
 type Tab = 'today' | 'istighfar' | 'reflections' | 'reminders';
 const tabs = [{ key: 'today', label: 'Bugun', icon: Sun }, { key: 'istighfar', label: 'Istig‘for', icon: CircleDot }, { key: 'reflections', label: 'Muhosaba', icon: BookHeart }, { key: 'reminders', label: 'Eslatmalar', icon: Bell }] as const;
@@ -70,9 +69,6 @@ function Rahmat() {
   const [busy, setBusy] = useState(false);
   const [settingsDraft, setSettingsDraft] = useState<ReminderSettings | null>(null);
   const [settingsError, setSettingsError] = useState('');
-  // True when times are saved on the phone but the push server schedule is not yet updated.
-  const [syncPending, setSyncPending] = useState(false);
-  const [retryTick, setRetryTick] = useState(0);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latest = useRef<AppState | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -109,7 +105,7 @@ function Rahmat() {
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 30000);
     const sub = NativeAppState.addEventListener('change', state => {
-      if (state === 'active') { setNow(new Date()); setPwa(getPwaState()); if (latest.current && !notificationOperation.current) syncReminders(latest.current.settings, latest.current.reflections.some(r => !r.archived)).then(result => { setNotificationState(previous => result.status === 'disabled' && previous?.status === 'denied' ? previous : result); setNotificationError(''); setSyncPending(false); }).catch(error => setNotificationError(error instanceof Error && error.message ? error.message : 'Eslatmalarni yangilab bo‘lmadi. Qayta urinib ko‘ring.')); }
+      if (state === 'active') { setNow(new Date()); setPwa(getPwaState()); if (latest.current && !notificationOperation.current) syncReminders(latest.current.settings, latest.current.reflections.some(r => !r.archived)).then(result => setNotificationState(previous => result.status === 'disabled' && previous?.status === 'denied' ? previous : result)).catch(() => setNotificationError('Eslatmalarni yangilab bo‘lmadi. Qayta urinib ko‘ring.')); }
       else if (latest.current && !deleting.current) { if (saveTimer.current) clearTimeout(saveTimer.current); saveState(latest.current).catch(error => setSaveError(error instanceof Error ? error.message : 'Saqlashda xato.')); }
     });
     return () => { clearInterval(timer); sub.remove(); if (toastTimer.current) clearTimeout(toastTimer.current); };
@@ -119,16 +115,9 @@ function Rahmat() {
   useEffect(() => {
     if (!data || busy || notificationOperation.current) return;
     let live = true;
-    syncReminders(data.settings, hasActive).then(result => { if (live) { setNotificationState(previous => result.status === 'disabled' && previous?.status === 'denied' ? previous : result); setNotificationError(''); setSyncPending(false); } }).catch(error => { if (live) setNotificationError(error instanceof Error && error.message ? error.message : 'Eslatmalarni sozlab bo‘lmadi. Qayta urinib ko‘ring.'); });
+    syncReminders(data.settings, hasActive).then(result => { if (live) { setNotificationState(previous => result.status === 'disabled' && previous?.status === 'denied' ? previous : result); setNotificationError(''); } }).catch(() => { if (live) setNotificationError('Eslatmalarni sozlab bo‘lmadi. Qayta urinib ko‘ring.'); });
     return () => { live = false; };
-  }, [settingsKey, hasActive, day, busy, retryTick]);
-  useEffect(() => {
-    // Retry a pending server schedule as soon as the connection returns.
-    if (Platform.OS !== 'web' || typeof window === 'undefined' || !syncPending) return;
-    const retry = () => setRetryTick(n => n + 1);
-    window.addEventListener('online', retry);
-    return () => window.removeEventListener('online', retry);
-  }, [syncPending]);
+  }, [settingsKey, hasActive, day, busy]);
   useEffect(() => subscribeToReminderOpen((destination, quoteId) => { setTab(destination); const index = content.reminders.findIndex(item => item.id === quoteId); if (index >= 0) setQuoteIndex(index); }), []);
   useEffect(() => { scroll.current?.scrollTo({ y: 0, animated: false }); }, [tab]);
   const update = (fn: (state: AppState) => AppState) => setData(old => old ? fn(old) : old);
@@ -165,27 +154,11 @@ function Rahmat() {
     notificationOperation.current = true;
     setBusy(true); setSettingsError('');
     try {
-      const outcome = await saveReminderSettings(next, data!.settings, hasActive, {
-        sync: syncReminders,
-        persist: async settings => {
-          const base = latest.current;
-          if (!base) throw new Error('Ma’lumotlar hali yuklanmagan.');
-          const saved = { ...base, settings };
-          await saveState(saved);
-          latest.current = saved;
-          setData(old => old ? { ...old, settings } : old);
-          setSettingsDraft(settings);
-        },
-      });
-      if (!outcome.synced) {
-        setSyncPending(true);
-        setNotificationError(outcome.syncError ?? '');
-        showToast('Vaqtlar telefonda saqlandi. Server jadvali hali yangilanmadi.');
-        return;
-      }
-      const result = outcome.result!;
-      setSyncPending(false); setNotificationState(result); setNotificationError('');
-      showToast(result.status === 'install-required' ? 'Avval Rahmatni bosh ekranga qo‘shing va o‘sha belgidan oching.' : result.status === 'unavailable' || result.status === 'preview' ? 'Bu brauzerda bildirishnomalar mavjud emas.' : result.status === 'denied' ? 'Bildirishnomalarga telefon sozlamalaridan ruxsat bering.' : 'Eslatma sozlamalari saqlandi va server jadvali yangilandi.');
+      const result = await syncReminders(next, hasActive, true);
+      setNotificationState(result); setNotificationError('');
+      const saved = { ...next, enabled: result.status === 'enabled' };
+      setSettingsDraft(saved); update(old => ({ ...old, settings: saved }));
+      showToast(result.status === 'install-required' ? 'Avval Rahmatni bosh ekranga qo‘shing va o‘sha belgidan oching.' : result.status === 'unavailable' || result.status === 'preview' ? 'Bu brauzerda bildirishnomalar mavjud emas.' : result.status === 'denied' ? 'Bildirishnomalarga telefon sozlamalaridan ruxsat bering.' : 'Eslatma sozlamalari saqlandi.');
     } catch (error) { setSettingsError(error instanceof Error ? error.message : 'Saqlab bo‘lmadi. Qayta urinib ko‘ring.'); }
     finally { notificationOperation.current = false; setBusy(false); }
   };
@@ -247,7 +220,7 @@ function Rahmat() {
       {tab === 'reminders' && <>
         <View style={{ gap: 10 }}><Text style={s.eyebrow}>KUN DAVOMIDA YONINGIZDA</Text><Text style={s.title}>Yaxshilikni{ '\n' }yodga oling.</Text><Text style={s.muted}>Kuningizga mos, muloyim eslatmalar.</Text></View>
         {Platform.OS === 'web' && <View style={[s.softCard, { gap: 10 }]}><Text style={s.medium}>{pwa.installed ? 'Rahmat bosh ekraningizda' : 'Rahmatni telefoningizga o‘rnating'}</Text><Text style={s.muted}>{pwa.installed ? 'Eslatmalarni yoqing va ruxsat so‘ralganda “Ruxsat berish”ni tanlang.' : pwa.ios ? 'Safari → Ulashish → Bosh ekranga qo‘shish → Qo‘shish. So‘ng Rahmat belgisidan ochib, bildirishnomalarni yoqing.' : 'Brauzer menyusidan “Ilovani o‘rnatish” yoki “Bosh ekranga qo‘shish”ni tanlang.'}</Text><Text style={s.muted}>iPhone eslatmalari uchun iOS 16.4 yoki yangiroq versiya kerak. Eslatma vaqtlari va telefonning bildirishnoma manzili serverda saqlanadi; niyat matnlari yuborilmaydi.</Text>{!pwa.secure && <Text style={[s.muted, { color: c.danger }]}>O‘rnatish va eslatmalar uchun xavfsiz HTTPS havolasidan oching.</Text>}</View>}
-        <View style={[s.card, { gap: 12 }]}><View style={s.between}><View style={[s.row, { gap: 10, flex: 1 }]}><BellRing size={21} color={c.forest} /><Text style={[s.medium, { flex: 1 }]}>Bildirishnomalar</Text></View><Switch accessibilityLabel="Bildirishnomalarni yoqish" value={data.settings.enabled && notificationState?.status === 'enabled'} onValueChange={value => void applySettings(value)} disabled={busy} trackColor={{ false: '#D3D8CE', true: c.forest }} thumbColor={c.white} /></View><Text style={s.muted}>{notificationState?.status === 'denied' ? 'Ruxsat berilmagan. Telefon sozlamalarini oching.' : data.settings.enabled && notificationState?.status === 'enabled' ? 'Yoqilgan · shaxsiy qaydlarsiz eslatmalar' : 'Istig‘for va Sunnat uchun eslatmalarni yoqing.'}</Text>{notificationState?.status === 'denied' && Platform.OS !== 'web' && <Button secondary onPress={() => Linking.openSettings().catch(() => showToast('Telefon sozlamalarini qo‘lda oching.'))}>Telefon sozlamalari</Button>}{notificationState?.status === 'denied' && Platform.OS === 'web' && <Text style={s.muted}>iPhone: Sozlamalar → Bildirishnomalar → Rahmat → Ruxsat berish.</Text>}{notificationError ? <Text style={[s.muted, { color: c.danger }]}>{notificationError}</Text> : null}{syncPending ? <Text accessibilityRole="alert" style={s.muted}>Vaqtlar telefonda saqlandi. Server jadvali hali yangilanmadi — internet qaytganda avtomatik qayta yuboriladi.</Text> : null}</View>
+        <View style={[s.card, { gap: 12 }]}><View style={s.between}><View style={[s.row, { gap: 10, flex: 1 }]}><BellRing size={21} color={c.forest} /><Text style={[s.medium, { flex: 1 }]}>Bildirishnomalar</Text></View><Switch accessibilityLabel="Bildirishnomalarni yoqish" value={data.settings.enabled && notificationState?.status === 'enabled'} onValueChange={value => void applySettings(value)} disabled={busy} trackColor={{ false: '#D3D8CE', true: c.forest }} thumbColor={c.white} /></View><Text style={s.muted}>{notificationState?.status === 'denied' ? 'Ruxsat berilmagan. Telefon sozlamalarini oching.' : data.settings.enabled && notificationState?.status === 'enabled' ? 'Yoqilgan · shaxsiy qaydlarsiz eslatmalar' : 'Istig‘for va Sunnat uchun eslatmalarni yoqing.'}</Text>{notificationState?.status === 'denied' && Platform.OS !== 'web' && <Button secondary onPress={() => Linking.openSettings().catch(() => showToast('Telefon sozlamalarini qo‘lda oching.'))}>Telefon sozlamalari</Button>}{notificationState?.status === 'denied' && Platform.OS === 'web' && <Text style={s.muted}>iPhone: Sozlamalar → Bildirishnomalar → Rahmat → Ruxsat berish.</Text>}{notificationError ? <Text style={[s.muted, { color: c.danger }]}>{notificationError}</Text> : null}</View>
         <View style={s.stack}><Text style={s.heading}>Sizning faol kuningiz</Text><Text style={s.muted}>Eslatmalar shu oraliqda rejalashtiriladi.</Text><View style={[s.row, { gap: 12 }]}>{(['dayStart', 'dayEnd'] as const).map(key => <View key={key} style={[s.card, { flex: 1, padding: 14, gap: 10 }]}><Text style={s.tiny}>{key === 'dayStart' ? 'BOSHLANISHI' : 'TUGASHI'}</Text><Text style={s.heading}>{hour(draft[key])}</Text><View style={s.between}><IconButton disabled={busy} label={`${key === 'dayStart' ? 'Boshlanish' : 'Tugash'} vaqtini bir soat kamaytirish`} onPress={() => setSettingsDraft({ ...draft, [key]: Math.max(key === 'dayStart' ? 0 : 1, draft[key] - 1) })}><Minus size={16} color={c.forest} /></IconButton><IconButton disabled={busy} label={`${key === 'dayStart' ? 'Boshlanish' : 'Tugash'} vaqtini bir soat oshirish`} onPress={() => setSettingsDraft({ ...draft, [key]: Math.min(key === 'dayStart' ? 23 : 24, draft[key] + 1) })}><Plus size={16} color={c.forest} /></IconButton></View></View>)}</View></View>
         <View style={s.stack}><Text style={s.heading}>Istig‘for uchun 5 mahal</Text><Text style={s.muted}>Har bir faol niyat uchun 100 tadan. Bir vaqtda bitta umumiy eslatma keladi.</Text>{draft.times.map((t, i) => <View key={i} style={s.between}><View style={[s.row, { gap: 12, flex: 1 }]}><View style={[s.roundSlot, { width: 33, height: 33, flexShrink: 0 }]}><Text style={s.muted}>{i + 1}</Text></View><Text style={[s.text, { flex: 1 }]}>{slotNames[i]}</Text></View><TextInput editable={!busy} accessibilityLabel={`${i + 1}-mahal vaqti`} value={t} maxLength={5} autoCorrect={false} keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'default'} onChangeText={value => setSettingsDraft({ ...draft, times: draft.times.map((v, index) => index === i ? value : v) })} style={[s.input, { width: 82, flexShrink: 0, textAlign: 'center', paddingHorizontal: 8 }]} /></View>)}</View>
         <View style={[s.softCard, { gap: 14 }]}><View style={[s.row, { gap: 8 }]}><Leaf size={18} color={c.forest} /><Text style={s.medium}>Sunnatdan bir eslatma</Text></View><Text style={s.muted}>Kun davomida tasodifiy vaqtlarda hadisga tayangan bir jumla.</Text><View style={s.row}>{([1, 2, 3] as const).map(n => <Pressable disabled={busy} key={n} accessibilityRole="button" accessibilityState={{ selected: draft.sunnahPerDay === n }} onPress={() => setSettingsDraft({ ...draft, sunnahPerDay: n })} style={[s.chip, { flex: 1, alignItems: 'center', paddingHorizontal: 8 }, draft.sunnahPerDay === n && s.chipOn]}><Text style={[s.medium, draft.sunnahPerDay === n && { color: c.paper }]}>{n} marta</Text></Pressable>)}</View></View>
