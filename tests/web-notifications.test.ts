@@ -25,6 +25,8 @@ function webHarness(memory = new Map<string, string>()) {
     unsubscribeCalls: 0,
     unsubscribeResult: true,
     offline: false,
+    activeWorker: false,
+    prepareFails: false,
     statuses: new Map<string, number>(),
     diagnostic: { registered: true, pending: false, result: null } as Record<string, unknown>,
     calls: [] as FetchCall[],
@@ -42,6 +44,7 @@ function webHarness(memory = new Map<string, string>()) {
     },
   };
   const registration = {
+    get active() { return state.activeWorker ? {} : null; },
     pushManager: {
       async getSubscription() { return state.subscription ? subscription : null; },
       async subscribe(options: { userVisibleOnly: boolean; applicationServerKey: Uint8Array }) {
@@ -53,7 +56,7 @@ function webHarness(memory = new Map<string, string>()) {
     },
   };
   const context = {
-    URL, Promise, Error, Uint8Array, Intl, Date, AbortSignal,
+    URL, Promise, Error, TypeError, Uint8Array, Intl, Date, AbortSignal,
     atob: (value: string) => Buffer.from(value, 'base64').toString('binary'),
     crypto: { getRandomValues(array: Uint8Array) { array.fill(randomByte++); return array; } },
     // Unref diagnostic timeout handles so this test does not wait twelve seconds after ready wins.
@@ -84,7 +87,8 @@ function webHarness(memory = new Map<string, string>()) {
       state.events.push(`fetch:${options.method}:${path}`);
       state.calls.push({ path, method: options.method, body: options.body ? JSON.parse(options.body) : undefined, headers: options.headers });
       if (state.beforeFetch) await state.beforeFetch(path);
-      if (state.offline) throw new Error('Network unavailable');
+      // Safari's wording for an unreachable server.
+      if (state.offline) throw new TypeError('Load failed');
       const status = state.statuses.get(path) ?? 200;
       return { ok: status >= 200 && status < 300, status, async json() {
         return path === 'config' ? { publicKey: Buffer.alloc(65, 1).toString('base64url') } : path === 'status' ? state.diagnostic : { ok: true };
@@ -100,7 +104,7 @@ function webHarness(memory = new Map<string, string>()) {
     if (id === '../domain/schedule') return schedule;
     if (id === './pwa.web') return {
       getPwaState: () => ({ ...state.pwa }),
-      async preparePwa() { state.events.push('prepare'); },
+      async preparePwa() { state.events.push('prepare'); if (state.prepareFails) throw new TypeError('Load failed'); },
     };
     throw new Error(`Unexpected web service dependency: ${id}`);
   };
@@ -291,4 +295,46 @@ test('passive stale OFF or old times cannot cancel or overwrite a newer explicit
   assert.deepEqual(a.state.calls.at(-1)?.body?.settings, newer);
   await a.api.syncReminders(settings, true);
   assert.deepEqual(a.state.calls.at(-1)?.body?.settings, newer);
+});
+
+test('a failed request on iPhone shows an Uzbek network message instead of Safari "Load failed"', async () => {
+  const { state, api } = webHarness();
+  await api.syncReminders(settings, true, true);
+  state.offline = true;
+  const edited = { ...settings, times: ['08:15', '11:00', '14:00', '17:00', '20:00'] };
+  await assert.rejects(api.syncReminders(edited, true, true), (error: Error) => {
+    assert.doesNotMatch(error.message, /Load failed/);
+    assert.match(error.message, /Internet aloqasini tekshiring/);
+    return true;
+  });
+  await assert.rejects(api.sendTestNotification(), /Internet aloqasini tekshiring/);
+});
+
+test('saving with an active service worker does not download sw.js again', async () => {
+  const { state, api } = webHarness();
+  state.activeWorker = true; state.prepareFails = true;
+  assert.equal((await api.syncReminders(settings, true, true)).status, 'enabled');
+  assert.equal(state.events.includes('prepare'), false);
+  state.activeWorker = false;
+  state.subscription = false;
+  await assert.rejects(api.syncReminders({ ...settings, sunnahPerDay: 3 }, true, true), /Internet aloqasini tekshiring/);
+});
+
+test('a time edit that cannot reach the server keeps the new times for the next retry', async () => {
+  const { state, api } = webHarness();
+  await api.syncReminders(settings, true, true);
+  const edited = { ...settings, times: ['08:30', '11:30', '14:30', '17:30', '20:30'] };
+  state.offline = true;
+  await assert.rejects(api.syncReminders(edited, true, true), /Internet/);
+  state.offline = false;
+  // A passive retry with the locally saved times must send them, never the old schedule.
+  assert.equal((await api.syncReminders(edited, true)).status, 'enabled');
+  assert.deepEqual(state.calls.at(-1)?.body?.settings, edited);
+});
+
+test('a first enable that cannot reach the server is still not saved as an opt-in', async () => {
+  const { state, memory, api } = webHarness();
+  state.offline = true;
+  await assert.rejects(api.syncReminders(settings, true, true), /Internet/);
+  assert.equal(memory.has('rahmat.push.preference.v1'), false);
 });

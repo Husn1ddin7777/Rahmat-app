@@ -53,12 +53,23 @@ function deviceToken(create = false): string | null {
   }
   return token;
 }
+export const NETWORK_ERROR_MESSAGE = 'Eslatma serveriga ulanib bo‘lmadi. Internet aloqasini tekshiring.';
+function timeoutSignal(milliseconds: number): AbortSignal | undefined {
+  try { return typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(milliseconds) : undefined; }
+  catch { return undefined; }
+}
 async function api(path: string, method = 'GET', body?: unknown, token?: string | null): Promise<any> {
-  const response = await fetch(`/api/push/${path}`, {
-    method, cache: 'no-store', credentials: 'same-origin',
-    headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-    ...(body ? { body: JSON.stringify(body) } : {}), signal: AbortSignal.timeout(15000),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`/api/push/${path}`, {
+      method, cache: 'no-store', credentials: 'same-origin',
+      headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      ...(body ? { body: JSON.stringify(body) } : {}), signal: timeoutSignal(15000),
+    });
+  } catch {
+    // Safari reports an unreachable server as a bare "Load failed" TypeError.
+    throw new Error(NETWORK_ERROR_MESSAGE);
+  }
   const result = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(
     response.status === 429 ? 'Sinov uchun bir daqiqa kuting. Kuniga 5 tagacha sinov mumkin.' :
@@ -72,7 +83,13 @@ function applicationKey(value: string): Uint8Array<ArrayBuffer> {
   return Uint8Array.from(raw, char => char.charCodeAt(0));
 }
 async function registration(): Promise<ServiceWorkerRegistration> {
-  await preparePwa();
+  // Reuse an active worker. Calling register() on every save re-downloads sw.js,
+  // and on a weak phone connection that alone rejects with "Load failed".
+  let existing: ServiceWorkerRegistration | undefined;
+  try { existing = await navigator.serviceWorker.getRegistration('/'); } catch { existing = undefined; }
+  if (existing?.active && existing.pushManager) return existing;
+  try { await preparePwa(); }
+  catch { throw new Error(NETWORK_ERROR_MESSAGE); }
   return Promise.race([
     navigator.serviceWorker.ready,
     new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Ilovani yangilab, qayta urinib ko‘ring.')), 12000)),
@@ -162,7 +179,11 @@ export function syncReminders(settings: ReminderSettings, hasActiveReflections: 
     throw new Error('Eslatma sozlamalari boshqa oynada o‘zgardi. Qayta urinib ko‘ring.');
   }).catch((error) => {
     // An unsuccessful enable cannot become a saved global opt-in. Never undo a newer choice.
-    if (ownChoice?.settings.enabled && sharedPreference()?.id === ownChoice.id) {
+    // A time edit while reminders were already on keeps the new times, so the
+    // next passive sync retries them instead of restoring the old schedule.
+    let wasEnabled = false;
+    try { wasEnabled = previousPreference !== null && JSON.parse(previousPreference)?.settings?.enabled === true; } catch { wasEnabled = false; }
+    if (ownChoice?.settings.enabled && !wasEnabled && sharedPreference()?.id === ownChoice.id) {
       if (previousPreference === null) localStorage.removeItem(PREFERENCE_KEY);
       else localStorage.setItem(PREFERENCE_KEY, previousPreference);
     }
