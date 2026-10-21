@@ -3,23 +3,51 @@
     "name": "Rahmat",
     "slug": "rahmat",
     "scheme": "rahmat",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "uz.rahmat.habits",
-      "config": { "usesNonExemptEncryption": false }
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "uz.rahmat.habits",
-      "allowBackup": false
+      "allowBackup": false,
+      "icon": "./public/icons/icon-512.png",
+      "adaptiveIcon": {
+        "foregroundImage": "./public/icons/icon-maskable-512.png",
+        "backgroundColor": "#244D40"
+      },
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ]
     },
-    "web": { "bundler": "metro", "name": "Rahmat — Kichik qadamlar, go‘zal odatlar", "lang": "uz" },
+    "web": {
+      "bundler": "metro",
+      "name": "Rahmat — Kichik qadamlar, go‘zal odatlar",
+      "lang": "uz"
+    },
     "plugins": [
-      ["expo-notifications", {"color":"#244D40"}],
+      [
+        "expo-notifications",
+        {
+          "color": "#244D40",
+          "icon": "./public/icons/badge-96.png"
+        }
+      ],
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Rahmat qulfini Face ID bilan ochish uchun ruxsat bering."
+        }
+      ]
     ]
   }
 }

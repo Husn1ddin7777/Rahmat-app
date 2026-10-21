@@ -5,6 +5,8 @@ export type ReminderSettings = {
   dayEnd: number;
   sunnahPerDay: 1 | 2 | 3;
   times: string[];
+  /** Optional evening Muhosaba prompt (HH:mm). Not limited to the daytime window. */
+  eveningTime?: string | null;
 };
 
 export type ReminderResult = {
@@ -22,17 +24,27 @@ export type SunnahReminder = {
   contentType: 'paraphrase';
 };
 
+export type ReminderScreen = 'istighfar' | 'today' | 'reflections';
+
 export type PlannedReminder = {
   identifier: string;
   title: string;
   body: string;
-  screen: 'istighfar' | 'today';
+  screen: ReminderScreen;
   trigger:
     | { type: 'daily'; hour: number; minute: number }
     | { type: 'weekly'; weekday: number; hour: number; minute: number };
 };
 
-export const MAX_SCHEDULED_REMINDERS = 26;
+/** Five istighfar prompts, one evening prompt and up to 21 weekly Sunnah reminders. */
+export const MAX_SCHEDULED_REMINDERS = 27;
+export const MAX_ISTIGHFAR_SLOTS = 5;
+
+/** Generic wording only: the user's own reflection text never enters a notification. */
+export const EVENING_REMINDER = {
+  title: 'Kechki muhosaba',
+  body: 'Kun yakunida bir daqiqa: shukr, saboq va ertangi niyat.',
+} as const;
 
 export function timeToMinutes(time: string): number {
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
@@ -67,13 +79,26 @@ export function normalizeReminderSettings(settings: ReminderSettings): ReminderS
   if (minutes.some((minute) => minute < settings.dayStart * 60 || minute >= settings.dayEnd * 60)) {
     throw new Error('Barcha eslatmalar tanlangan kunduzgi oraliqda bo‘lishi kerak.');
   }
+  const eveningTime = settings.eveningTime ?? null;
+  if (eveningTime !== null) {
+    if (typeof eveningTime !== 'string') throw new Error('Kechki muhosaba vaqtini HH:mm ko‘rinishida kiriting.');
+    timeToMinutes(eveningTime);
+  }
   return {
     enabled: settings.enabled,
     dayStart: settings.dayStart,
     dayEnd: settings.dayEnd,
     sunnahPerDay: settings.sunnahPerDay,
     times: [...settings.times],
+    eveningTime,
   };
+}
+
+/** Old clients and stored server records only knew whether any intention was active. */
+export function normalizeIstighfarSlots(value: unknown): number {
+  if (typeof value === 'boolean') return value ? MAX_ISTIGHFAR_SLOTS : 0;
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= MAX_ISTIGHFAR_SLOTS) return value;
+  throw new Error('Istig‘for eslatmalari soni 0 dan 5 gacha bo‘lishi kerak.');
 }
 
 function hash(value: string): number {
@@ -95,8 +120,13 @@ export function localScheduleDay(date: Date): string {
 }
 
 function fitsTime(reminder: SunnahReminder, minute: number): boolean {
+  return fitsTimeCategory(reminder.timeCategory, minute);
+}
+
+/** Whether content tagged for a time of day suits a local clock minute. */
+export function fitsTimeCategory(category: string, minute: number): boolean {
   const hour = minute / 60;
-  switch (reminder.timeCategory) {
+  switch (category) {
     case 'morning': return hour >= 5 && hour < 11;
     case 'mealtime': return (hour >= 7 && hour < 9) || (hour >= 12 && hour < 14) || (hour >= 18 && hour < 20);
     case 'evening': return hour >= 17;
@@ -106,20 +136,22 @@ function fitsTime(reminder: SunnahReminder, minute: number): boolean {
 }
 
 /**
- * Five repeating daily prompts are shared by all active reflections.
+ * Daily istighfar prompts are shared by all active reflections: one per session
+ * of the largest active routine, using the first chosen times in order.
  * Sunnah reminders repeat by weekday until the app next refreshes the plan.
  * A local-day seed makes the plan stable across rerenders and app restarts.
  */
 export function buildReminderPlan(
   input: ReminderSettings,
-  hasActiveReflections: boolean,
+  istighfarSlots: number,
   reminders: readonly SunnahReminder[],
   now = new Date(),
 ): PlannedReminder[] {
   if (!input.enabled) return [];
   const settings = normalizeReminderSettings(input);
+  const slots = normalizeIstighfarSlots(istighfarSlots);
   const plan: PlannedReminder[] = [];
-  const dailyMinutes = hasActiveReflections ? settings.times.map(timeToMinutes) : [];
+  const dailyMinutes = settings.times.slice(0, slots).map(timeToMinutes);
   dailyMinutes.forEach((minute, slot) => {
     plan.push({
       identifier: `rahmah.istighfar.${slot}`,
@@ -129,6 +161,18 @@ export function buildReminderPlan(
       trigger: { type: 'daily', hour: Math.floor(minute / 60), minute: minute % 60 },
     });
   });
+  const reservedMinutes = [...dailyMinutes];
+  if (settings.eveningTime) {
+    const minute = timeToMinutes(settings.eveningTime);
+    reservedMinutes.push(minute);
+    plan.push({
+      identifier: 'rahmah.evening',
+      title: EVENING_REMINDER.title,
+      body: EVENING_REMINDER.body,
+      screen: 'reflections',
+      trigger: { type: 'daily', hour: Math.floor(minute / 60), minute: minute % 60 },
+    });
+  }
 
   // Only vetted paraphrases from the bundled public content enter notifications.
   const publicReminders = reminders.filter((reminder) => reminder.contentType === 'paraphrase');
@@ -138,7 +182,7 @@ export function buildReminderPlan(
   const seed = `${localScheduleDay(now)}:${JSON.stringify(settings)}`;
 
   for (let weekday = 1; weekday <= 7; weekday += 1) {
-    const usedMinutes = [...dailyMinutes];
+    const usedMinutes = [...reservedMinutes];
     const usedContent = new Set<string>();
     for (let slot = 0; slot < settings.sunnahPerDay; slot += 1) {
       const segmentStart = start + Math.floor((end - start) * slot / settings.sunnahPerDay);

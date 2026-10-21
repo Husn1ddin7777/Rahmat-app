@@ -4,14 +4,18 @@
 
 Live PWA: **https://rahmat.husniddinizzatullayev7777.workers.dev**. Deployed on 2026-09-28 with Web Push credentials configured. See [iPhone installation](./PWA-SETUP.md).
 
-## The first version
+## What it does (version 1.1)
 
-- **Bugun:** daily habit checkoffs, istighfar progress, a sourced Sunnah reminder, and real weekly activity.
-- **Istig‘for:** five independent counters of 100 for each active reflection; tap to count and undo the last tap. A new local calendar day starts fresh, without carrying a missed target forward.
-- **Muhosaba:** optional names and notes, pause/reactivate entries, and delete an entry. Maximum 20 entries, including archived entries. Keeps the latest 30 recorded days of progress.
-- **Eslatmalar:** five editable times, a daytime window, 1–3 random Sunnah reminders per day, permission handling, and a test notification.
+- **Bugun:** three default habits plus up to seven personal habits (optional weekdays), istighfar progress, yesterday's intention for today, a Sunnah reminder with a "try it today" step, and a gentle weekly line. A 30-day calendar marks good days; there is no streak to break and missed days are never owed.
+- **Istig‘for — Niyatlarim:** each intention has its own routine, chosen by the user: 1–5 sessions a day of 10, 33 or 100. New intentions start at 1 × 33; intentions from version 1.0 keep 5 × 100. Changing a routine never deletes counts.
+- **Istig‘for — Kunlik zikrlar:** Sayyid al-istighfar (Sahih al-Bukhari 6306) with day and night check-offs, and the after-prayer tasbih of Sahih Muslim 597a (33 · 33 · 33 and the tahlil) with a guided counter. Arabic text is taken from the source; Uzbek transliteration and meaning await review.
+- **Muhosaba:** private intentions with optional notes, pause/reactivate/delete, and an optional evening reflection of three questions (gratitude, one thing to do better, one intention for tomorrow). No scores. Entries stay on the device and roll off after 30 days.
+- **Eslatmalar:** five editable times, a daytime window, 1–3 random Sunnah reminders a day from 47 sourced reminders, an optional evening Muhosaba reminder, a test notification, and the app lock.
+- **App lock (optional):** a 4–6 digit PIN, for the whole app or only Muhosaba (which also hides intention names elsewhere). On phones, fingerprint, face or the phone's own passcode can open it. A forgotten PIN can only be reset by deleting all data.
 
-The name Rahmat and bundle IDs are working choices. This is an implemented first version, not an App Store release or an installable APK/IPA.
+Android APK: **https://github.com/Husn1ddin7777/Rahmat-app/releases/latest/download/Rahmat.apk** (built automatically from `main`; see [Android APK](#android-apk)).
+
+The name Rahmat and bundle IDs are working choices. This is an implemented first version, not an App Store or Google Play release.
 
 ## Run it
 
@@ -36,7 +40,18 @@ npm run export:native # Android and iOS JavaScript/Hermes bundles
 
 The web version is now an installable PWA with durable local IndexedDB state, an offline app shell, and a Web Push service. See [PWA-SETUP.md](./PWA-SETUP.md) for iPhone installation and the one-time Cloudflare deployment. It requires a live HTTPS origin and configured VAPID secrets before background notifications work. Browser storage is not app-encrypted.
 
-## Try an installable build
+## Android APK
+
+The [Android APK workflow](./.github/workflows/android-apk.yml) runs on GitHub's servers; no Expo account or local Android setup is needed. It typechecks and tests the project, generates the native Android project with `expo prebuild`, and runs a Gradle release build for ARM phones (`armeabi-v7a`, `arm64-v8a`).
+
+- **Pull requests:** the APK is attached to the workflow run as an artifact for checking.
+- **`main`:** the APK is also published as a GitHub Release named `Rahmat.apk`. The link above always serves the newest one.
+- **Version code:** each build uses the workflow run number, so a newer APK installs as an update and keeps the app's data.
+- **Signing:** builds are signed with the standard React Native debug key from the Expo template. That is fine for sideloading test builds, but the key is public. Switch to a private release key (stored as a GitHub secret) before wide distribution or Google Play; that switch requires one uninstall and reinstall.
+
+To install: open the link on the Android phone, download `Rahmat.apk`, open it, and allow installs from that source when Android asks.
+
+## Other installable builds (EAS)
 
 The preview profile is configured in `eas.json`. Creating a native binary requires your Expo account and, for iOS physical devices, the relevant Apple signing setup. Before distribution, choose your own unique bundle identifiers in `app.json`; `uz.rahmat.habits` is a placeholder.
 
@@ -50,6 +65,8 @@ No paid build was submitted. Native signing/store release and the PWA production
 
 ## Reminders and privacy
 
+Istighfar reminders follow the largest active routine: an intention of 2 sessions a day gets reminders at the first two chosen times. The optional evening Muhosaba reminder uses generic wording only, never the user's answers.
+
 The native Expo version uses **local scheduled phone notifications**. The PWA uses a Cloudflare Worker with one scheduled Durable Object per anonymous device to send standard Web Push. There is no analytics feature yet.
 
 The five daily istighfar notifications are combined reminders for all active entries; the counters remain separate per entry. Notifications never contain private entry names, notes, or entry counts. When there are no active entries, only Sunnah reminders are scheduled.
@@ -60,11 +77,21 @@ On native devices, the state is stored in encrypted Expo SecureStore chunks with
 
 ## Religious content
 
-Eight Uzbek reminders are paraphrases, labeled as such and linked to their hadith references in `src/data/sunnah.json`. The 5 × 100 goal per entry is the user's chosen personal routine; the app does not describe it as a religious prescription or a measure of forgiveness. [Sahih Muslim 2702a](https://sunnah.com/muslim:2702a) supports the separately described practice of seeking forgiveness 100 times daily.
+**Status: sources checked on 2026-10-21; scholar review pending.** Every reminder links to Sahih al-Bukhari or Sahih Muslim on sunnah.com and is labelled as a paraphrase. [CONTENT-REVIEW.md](./CONTENT-REVIEW.md) lists every religious text in the app as a checklist for the reviewer (`npm run content:review` regenerates it). After approval, set `scholarReview.status` to `approved` in `src/data/sunnah.json`, `adhkar.json` and `muhosaba.json`; the in-app "awaiting review" notices then disappear.
 
-Have the final Uzbek wording and religious framing reviewed before public release. The current content is a small reviewed source set, not a comprehensive hadith library.
+The 47 Uzbek reminders are paraphrases, labelled as such and linked to their hadith references in `src/data/sunnah.json`. Each routine is the user's own choice; the app does not describe it as a religious prescription, and counts are never presented as forgiveness, reward or rank. [Sahih Muslim 2702a](https://sunnah.com/muslim:2702a) supports the separately described practice of seeking forgiveness 100 times daily. The app gives no rulings.
+
+Have the Uzbek wording, transliteration and religious framing reviewed before public release. The library is a reviewed-source set, not a comprehensive hadith collection.
 
 ## Verification completed
+
+Version 1.1 (2026-10-21):
+
+- 102 automated tests pass, including: upgrade of version 1.0 records with nothing lost, routines and capped counts, personal habits by weekday, evening entries (blank saves delete; deleted days leave no record), adhkar bounds, the 30-day calendar across month ends and daylight saving, PIN hashing and lock rules, reminder slots and the evening prompt on phone, web and server, compatibility with older installed web apps and stored server records, and content checks (every reminder links to a matching Bukhari or Muslim reference; the tasbih completes 100).
+- A browser run-through of the exported web app passed 45 checks: upgrading a 1.0 record, adding and changing a routine, counting to a target, both adhkar, personal habits, the 30-day view, the evening reflection and yesterday's intention, deleting a past entry, the evening reminder setting, Muhosaba-only and whole-app locks (wrong and right PIN, the pause after five wrong PINs, and "forgot PIN"), the sources sheet, and persistence after reload.
+- Not yet checked on a physical phone: fingerprint/face unlock, phone notifications for the new schedule, and Android back-button behaviour in the new sheets.
+
+Version 1.0:
 
 - TypeScript validation passes.
 - Automated tests cover native behavior, durable browser storage, Web Push permission/lifecycle handling, server scheduling/time zones, payload encryption, and error paths. Native checks also cover counter isolation, local midnight rollover, bounds, archive behavior, storage corruption and interrupted writes, explicit deletion, permission denial, cancellation, and notification routing.

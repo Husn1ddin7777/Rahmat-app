@@ -97,10 +97,10 @@ function response(screen: 'today' | 'istighfar', date = 100): Response {
 
 test('passive foreground sync never prompts; explicit enable creates a private channel and prompts', async () => {
   const { state, api } = nativeHarness();
-  assert.deepEqual(await api.syncReminders(settings, true), { status: 'denied', scheduled: 0 });
+  assert.deepEqual(await api.syncReminders(settings, 5), { status: 'denied', scheduled: 0 });
   assert.equal(state.permissionRequests, 0);
   assert.equal(state.channels.length, 0);
-  assert.deepEqual(await api.syncReminders(settings, true, true), { status: 'enabled', scheduled: 26 });
+  assert.deepEqual(await api.syncReminders(settings, 5, true), { status: 'enabled', scheduled: 26 });
   assert.equal(state.permissionRequests, 1);
   assert.equal(state.pending.length, 26);
   assert.equal(state.channels[0]?.options.lockscreenVisibility, 0);
@@ -111,7 +111,7 @@ test('passive foreground sync never prompts; explicit enable creates a private c
 test('a permanent permission denial is returned without another prompt', async () => {
   const { state, api } = nativeHarness();
   state.permission.canAskAgain = false;
-  assert.deepEqual(await api.syncReminders(settings, true, true), { status: 'denied', scheduled: 0 });
+  assert.deepEqual(await api.syncReminders(settings, 5, true), { status: 'denied', scheduled: 0 });
   assert.equal(state.permissionRequests, 0);
   assert.equal(state.pending.length, 0);
 });
@@ -119,7 +119,7 @@ test('a permanent permission denial is returned without another prompt', async (
 test('iOS provisional authorization is usable even when the root granted flag is false', async () => {
   const { state, api } = nativeHarness('ios');
   state.permission = { granted: false, canAskAgain: false, ios: { status: 3 } };
-  assert.deepEqual(await api.syncReminders(settings, false), { status: 'enabled', scheduled: 21 });
+  assert.deepEqual(await api.syncReminders(settings, 0), { status: 'enabled', scheduled: 21 });
   assert.equal(state.permissionRequests, 0);
   assert.equal(state.channels.length, 0);
 });
@@ -127,9 +127,9 @@ test('iOS provisional authorization is usable even when the root granted flag is
 test('same plan is idempotent and schedule metadata never includes reflections or counts', async () => {
   const { state, api } = nativeHarness();
   state.permission.granted = true;
-  await api.syncReminders(settings, true);
+  await api.syncReminders(settings, 5);
   const before = state.scheduleCalls;
-  await api.syncReminders(settings, true);
+  await api.syncReminders(settings, 5);
   assert.equal(state.scheduleCalls, before);
   assert.ok(state.pending.every((item) => Object.keys(item.content.data).sort().join(',') === 'app,scheduleKey,screen'));
   assert.equal(state.pending.filter((item) => item.trigger.type === 'daily').length, 5);
@@ -139,8 +139,8 @@ test('same plan is idempotent and schedule metadata never includes reflections o
 test('a queued disable wins over an earlier in-flight sync and clears every schedule', async () => {
   const { state, api } = nativeHarness();
   state.permission.granted = true;
-  const enabling = api.syncReminders(settings, true);
-  const disabling = api.syncReminders({ ...settings, enabled: false }, true);
+  const enabling = api.syncReminders(settings, 5);
+  const disabling = api.syncReminders({ ...settings, enabled: false }, 5);
   const results = await Promise.all([enabling, disabling]);
   assert.equal(results[1]?.status, 'disabled');
   assert.equal(state.pending.length, 0);
@@ -151,10 +151,10 @@ test('partial native failure cancels the partial plan, rejects, and permits a su
   const { state, api } = nativeHarness();
   state.permission.granted = true;
   state.failAfter = 3;
-  await assert.rejects(api.syncReminders(settings, true), /Native scheduling failed/);
+  await assert.rejects(api.syncReminders(settings, 5), /Native scheduling failed/);
   assert.equal(state.pending.length, 0);
   state.failAfter = Infinity;
-  assert.deepEqual(await api.syncReminders(settings, true), { status: 'enabled', scheduled: 26 });
+  assert.deepEqual(await api.syncReminders(settings, 5), { status: 'enabled', scheduled: 26 });
   assert.equal(state.pending.length, 26);
 });
 

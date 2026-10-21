@@ -1,4 +1,4 @@
-import { normalizeReminderSettings, type ReminderSettings } from '../src/domain/schedule';
+import { normalizeIstighfarSlots, normalizeReminderSettings, type ReminderSettings } from '../src/domain/schedule';
 import type { BrowserSubscription, Env, Registration } from './types';
 
 export class ApiError extends Error {
@@ -59,7 +59,8 @@ export function validateEndpoint(value: unknown): string {
 }
 
 export async function validateRegistration(input: unknown, now = Date.now()): Promise<Registration> {
-  const value = object(input, ['subscription', 'settings', 'hasActiveReflections', 'timeZone']);
+  // Older installed web apps still send `hasActiveReflections`; newer ones send a slot count.
+  const value = object(input, ['subscription', 'settings', 'istighfarSlots', 'hasActiveReflections', 'timeZone']);
   const rawSubscription = object(value.subscription, ['endpoint', 'expirationTime', 'keys']);
   const rawKeys = object(rawSubscription.keys, ['p256dh', 'auth']);
   const publicKey = decodeBase64Url(rawKeys.p256dh, 65);
@@ -78,12 +79,17 @@ export async function validateRegistration(input: unknown, now = Date.now()): Pr
     expirationTime: expirationTime as number | null,
     keys: { p256dh: rawKeys.p256dh as string, auth: rawKeys.auth as string },
   };
-  const rawSettings = object(value.settings, ['enabled', 'dayStart', 'dayEnd', 'sunnahPerDay', 'times']);
+  const rawSettings = object(value.settings, ['enabled', 'dayStart', 'dayEnd', 'sunnahPerDay', 'times', 'eveningTime']);
   if (typeof rawSettings.enabled !== 'boolean' || !Array.isArray(rawSettings.times) ||
       !rawSettings.times.every((time) => typeof time === 'string') ||
-      typeof value.hasActiveReflections !== 'boolean') {
+      (rawSettings.eveningTime !== undefined && rawSettings.eveningTime !== null && typeof rawSettings.eveningTime !== 'string')) {
     throw new ApiError(400, 'Eslatma sozlamalari noto‘g‘ri.');
   }
+  let istighfarSlots: number;
+  try {
+    if ((value.istighfarSlots === undefined) === (value.hasActiveReflections === undefined)) throw new Error();
+    istighfarSlots = normalizeIstighfarSlots(value.istighfarSlots ?? value.hasActiveReflections);
+  } catch { throw new ApiError(400, 'Eslatma sozlamalari noto‘g‘ri.'); }
   let settings: ReminderSettings;
   try { settings = normalizeReminderSettings(rawSettings as ReminderSettings); }
   catch { throw new ApiError(400, 'Besh alohida vaqtni kunduzgi oraliqda belgilang.'); }
@@ -93,7 +99,13 @@ export async function validateRegistration(input: unknown, now = Date.now()): Pr
   let timeZone: string;
   try { timeZone = new Intl.DateTimeFormat('en', { timeZone: value.timeZone }).resolvedOptions().timeZone; }
   catch { throw new ApiError(400, 'Vaqt mintaqasi noto‘g‘ri.'); }
-  return { subscription, settings, timeZone, hasActiveReflections: value.hasActiveReflections };
+  return { subscription, settings, timeZone, istighfarSlots };
+}
+
+/** Upgrades a stored record from before routines: active meant five daily prompts. */
+export function istighfarSlotsOf(record: { istighfarSlots?: unknown; hasActiveReflections?: unknown }): number {
+  try { return normalizeIstighfarSlots(record.istighfarSlots ?? record.hasActiveReflections ?? 0); }
+  catch { return 0; }
 }
 
 export async function readJson(request: Request): Promise<unknown> {

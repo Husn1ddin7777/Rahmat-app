@@ -9,7 +9,7 @@ import type { ReminderSettings } from '../src/domain/schedule';
 
 const settings: ReminderSettings = {
   enabled: true, dayStart: 7, dayEnd: 21, sunnahPerDay: 2,
-  times: ['08:00', '11:00', '14:00', '17:00', '20:00'],
+  times: ['08:00', '11:00', '14:00', '17:00', '20:00'], eveningTime: null,
 };
 
 type FetchCall = { path: string; method: string; body?: Record<string, unknown>; headers: Record<string, string> };
@@ -112,7 +112,7 @@ function webHarness(memory = new Map<string, string>()) {
 test('web permission is requested synchronously in the explicit enable call before queued work', async () => {
   const { state, api } = webHarness();
   state.pwa.ios = true;
-  const result = api.syncReminders(settings, true, true);
+  const result = api.syncReminders(settings, 5, true);
   assert.equal(state.permissionCalls, 1, 'the user gesture must reach Notification.requestPermission before awaiting anything');
   assert.deepEqual(state.events, ['permission']);
   assert.equal((await result).status, 'enabled');
@@ -122,72 +122,72 @@ test('web permission is requested synchronously in the explicit enable call befo
 
 test('passive sync never prompts and iOS installation or unsupported contexts return actionable states', async () => {
   const { state, api } = webHarness();
-  assert.equal((await api.syncReminders(settings, true)).status, 'disabled');
+  assert.equal((await api.syncReminders(settings, 5)).status, 'disabled');
   assert.equal(state.permissionCalls, 0);
   assert.equal(state.calls.length, 0);
   state.pwa.ios = true; state.pwa.installed = false;
-  assert.equal((await api.syncReminders(settings, true, true)).status, 'install-required');
+  assert.equal((await api.syncReminders(settings, 5, true)).status, 'install-required');
   assert.equal(state.permissionCalls, 0);
   state.pwa.ios = false; state.pwa.supported = false;
-  assert.equal((await api.syncReminders(settings, true, true)).status, 'unavailable');
+  assert.equal((await api.syncReminders(settings, 5, true)).status, 'unavailable');
   state.pwa.supported = true; state.pwa.secure = false;
-  assert.equal((await api.syncReminders(settings, true, true)).status, 'unavailable');
+  assert.equal((await api.syncReminders(settings, 5, true)).status, 'unavailable');
   assert.equal(state.permissionCalls, 0);
 });
 
 test('web registration sends public subscription/settings only and identical passive sync is idempotent', async () => {
   const { state, api } = webHarness();
-  assert.equal((await api.syncReminders(settings, true, true)).scheduled, 7);
+  assert.equal((await api.syncReminders(settings, 5, true)).scheduled, 7);
   const put = state.calls.find((call) => call.method === 'PUT')!;
-  assert.deepEqual(Object.keys(put.body!).sort(), ['hasActiveReflections', 'settings', 'subscription', 'timeZone']);
-  assert.deepEqual(Object.keys(put.body!.settings as object).sort(), ['dayEnd', 'dayStart', 'enabled', 'sunnahPerDay', 'times']);
+  assert.deepEqual(Object.keys(put.body!).sort(), ['istighfarSlots', 'settings', 'subscription', 'timeZone']);
+  assert.deepEqual(Object.keys(put.body!.settings as object).sort(), ['dayEnd', 'dayStart', 'enabled', 'eveningTime', 'sunnahPerDay', 'times']);
   assert.match(put.headers.Authorization!, /^Bearer [a-f0-9]{64}$/);
   assert.equal(/label|note|counts|createdAt|reflections/.test(JSON.stringify(put.body)), false);
   const before = state.calls.length;
-  await api.syncReminders(settings, true);
+  await api.syncReminders(settings, 5);
   assert.equal(state.calls.length, before);
-  await api.syncReminders(settings, false);
+  await api.syncReminders(settings, 0);
   assert.equal(state.calls.length, before + 1);
-  assert.equal(state.calls.at(-1)?.body?.hasActiveReflections, false);
+  assert.equal(state.calls.at(-1)?.body?.istighfarSlots, 0);
 });
 
 test('offline disable unsubscribes locally before attempting server cleanup', async () => {
   const { state, memory, api } = webHarness();
-  await api.syncReminders(settings, true, true);
+  await api.syncReminders(settings, 5, true);
   state.events.length = 0; state.offline = true;
-  assert.equal((await api.syncReminders({ ...settings, enabled: false }, false, true)).status, 'disabled');
+  assert.equal((await api.syncReminders({ ...settings, enabled: false }, 0, true)).status, 'disabled');
   assert.equal(state.subscription, false);
   assert.equal(state.unsubscribeCalls, 1);
   assert.deepEqual(state.events, ['unsubscribe', 'fetch:DELETE:subscription']);
   assert.equal(memory.get('rahmat.push.cleanup.v1'), '1');
   state.offline = false;
-  await api.syncReminders({ ...settings, enabled: false }, false, true);
+  await api.syncReminders({ ...settings, enabled: false }, 0, true);
   assert.equal(memory.has('rahmat.push.cleanup.v1'), false);
 });
 
 test('failed local unsubscribe is an error rather than false disabled success', async () => {
   const { state, api } = webHarness();
-  await api.syncReminders(settings, true, true);
+  await api.syncReminders(settings, 5, true);
   state.unsubscribeResult = false;
-  await assert.rejects(api.syncReminders({ ...settings, enabled: false }, false, true), /o‘chirib bo‘lmadi/);
+  await assert.rejects(api.syncReminders({ ...settings, enabled: false }, 0, true), /o‘chirib bo‘lmadi/);
   assert.equal(state.subscription, true);
 });
 
 test('503 configuration, subscription and test responses never report successful reminders', async () => {
   for (const failingPath of ['config', 'subscription', 'test']) {
     const { state, api } = webHarness();
-    if (failingPath === 'test') await api.syncReminders(settings, true, true);
+    if (failingPath === 'test') await api.syncReminders(settings, 5, true);
     state.statuses.set(failingPath, 503);
-    await assert.rejects(failingPath === 'test' ? api.sendTestNotification() : api.syncReminders(settings, true, true), /hali ulanmagan/);
+    await assert.rejects(failingPath === 'test' ? api.sendTestNotification() : api.syncReminders(settings, 5, true), /hali ulanmagan/);
     if (failingPath === 'config') assert.equal(state.subscriptionCalls, 0);
     state.statuses.delete(failingPath);
-    assert.equal((await api.syncReminders(settings, true, true)).status, 'enabled');
+    assert.equal((await api.syncReminders(settings, 5, true)).status, 'enabled');
   }
 });
 
 test('test diagnostics distinguish pending, provider acceptance and rejection without claiming phone delivery', async () => {
   const { state, api } = webHarness();
-  await api.syncReminders(settings, true, true);
+  await api.syncReminders(settings, 5, true);
   state.diagnostic = { registered: true, pending: true, result: null };
   assert.match(await api.getTestNotificationStatus(), /hali yuborilmoqda/);
   state.diagnostic = { registered: true, pending: false, result: { outcome: 'sent' } };
@@ -206,9 +206,9 @@ test('queued disable wins over an enable waiting for its server response', async
   const gate = new Promise<void>((resolve) => { release = resolve; });
   const started = new Promise<void>((resolve) => { reached = resolve; });
   state.beforeFetch = async (path) => { if (path === 'config') { reached(); await gate; } };
-  const enabling = api.syncReminders(settings, true, true);
+  const enabling = api.syncReminders(settings, 5, true);
   await started;
-  const disabling = api.syncReminders({ ...settings, enabled: false }, false, true);
+  const disabling = api.syncReminders({ ...settings, enabled: false }, 0, true);
   release();
   assert.equal((await enabling).status, 'disabled');
   assert.equal((await disabling).status, 'disabled');
@@ -218,10 +218,10 @@ test('queued disable wins over an enable waiting for its server response', async
 
 test('permission denial unsubscribes an existing endpoint and never asks during passive sync', async () => {
   const { state, api } = webHarness();
-  await api.syncReminders(settings, true, true);
+  await api.syncReminders(settings, 5, true);
   state.permission = 'denied';
   const asks = state.permissionCalls;
-  assert.equal((await api.syncReminders(settings, true)).status, 'denied');
+  assert.equal((await api.syncReminders(settings, 5)).status, 'denied');
   assert.equal(state.permissionCalls, asks);
   assert.equal(state.subscription, false);
 });
@@ -229,7 +229,7 @@ test('permission denial unsubscribes an existing endpoint and never asks during 
 test('passive sync restores a missing subscription after permission was already granted', async () => {
   const { state, api } = webHarness();
   state.permission = 'granted';
-  const result = await api.syncReminders(settings, true);
+  const result = await api.syncReminders(settings, 5);
   assert.equal(result.status, 'enabled');
   assert.equal(state.permissionCalls, 0);
   assert.equal(state.subscriptionCalls, 1);
@@ -239,13 +239,13 @@ test('passive sync restores a missing subscription after permission was already 
 test('subscription-change messages reconcile enabled settings and stay disabled after opt-out', async () => {
   const { state, api } = webHarness();
   const unsubscribe = api.subscribeToReminderOpen(() => {});
-  await api.syncReminders(settings, true, true);
+  await api.syncReminders(settings, 5, true);
   state.subscription = false;
   state.messageListener?.({ data: { type: 'RAHMAT_PUSH_SUBSCRIPTION_CHANGED' } });
   // This queued read of the same plan also waits for message-triggered reconciliation.
-  await api.syncReminders(settings, true);
+  await api.syncReminders(settings, 5);
   assert.equal(state.subscriptionCalls, 2);
-  await api.syncReminders({ ...settings, enabled: false }, false, true);
+  await api.syncReminders({ ...settings, enabled: false }, 0, true);
   state.messageListener?.({ data: { type: 'RAHMAT_PUSH_SUBSCRIPTION_CHANGED' } });
   await assert.rejects(api.sendTestNotification(), /Avval/);
   assert.equal(state.subscriptionCalls, 2);
@@ -260,8 +260,9 @@ test('web notification links route only to supported screens and unsubscribe the
   assert.deepEqual(routes, [['istighfar', 'choose-gentleness']]);
   state.messageListener?.({ data: { type: 'RAHMAT_NOTIFICATION_OPEN', screen: 'today', quoteId: 'cheerful-face' } });
   state.messageListener?.({ data: { type: 'RAHMAT_NOTIFICATION_OPEN', screen: 'reflections' } });
+  state.messageListener?.({ data: { type: 'RAHMAT_NOTIFICATION_OPEN', screen: 'settings' } });
   state.messageListener?.({ data: { type: 'UNKNOWN', screen: 'today' } });
-  assert.deepEqual(routes, [['istighfar', 'choose-gentleness'], ['today', 'cheerful-face']]);
+  assert.deepEqual(routes, [['istighfar', 'choose-gentleness'], ['today', 'cheerful-face'], ['reflections', undefined]]);
   unsubscribe();
   assert.equal(state.messageListener, undefined);
 });
@@ -270,12 +271,12 @@ test('web notification links route only to supported screens and unsubscribe the
 test('a stale window cannot recreate reminders after another window explicitly disables them', async () => {
   const shared = new Map<string, string>();
   const a = webHarness(shared); const b = webHarness(shared);
-  await a.api.syncReminders(settings, true, true);
+  await a.api.syncReminders(settings, 5, true);
   b.state.permission = 'granted'; b.state.subscription = true;
-  await b.api.syncReminders({ ...settings, enabled: false }, false, true);
+  await b.api.syncReminders({ ...settings, enabled: false }, 0, true);
   a.state.subscription = false;
   const subscriptions = a.state.subscriptionCalls;
-  assert.equal((await a.api.syncReminders(settings, true)).status, 'disabled');
+  assert.equal((await a.api.syncReminders(settings, 5)).status, 'disabled');
   assert.equal(a.state.subscriptionCalls, subscriptions);
   assert.equal(a.state.subscription, false);
 });
@@ -284,11 +285,32 @@ test('passive stale OFF or old times cannot cancel or overwrite a newer explicit
   const shared = new Map<string, string>();
   const a = webHarness(shared); const b = webHarness(shared);
   const newer = { ...settings, times: ['08:30', '11:30', '14:30', '17:30', '20:30'] };
-  await b.api.syncReminders(newer, true, true);
+  await b.api.syncReminders(newer, 5, true);
   a.state.permission = 'granted'; a.state.subscription = true;
-  assert.equal((await a.api.syncReminders({ ...settings, enabled: false }, false)).status, 'enabled');
+  assert.equal((await a.api.syncReminders({ ...settings, enabled: false }, 0)).status, 'enabled');
   assert.equal(a.state.unsubscribeCalls, 0);
   assert.deepEqual(a.state.calls.at(-1)?.body?.settings, newer);
-  await a.api.syncReminders(settings, true);
+  await a.api.syncReminders(settings, 5);
   assert.deepEqual(a.state.calls.at(-1)?.body?.settings, newer);
+});
+
+test('a choice saved by an older Rahmat window is read as five prompts, and new choices stay readable by it', async () => {
+  const shared = new Map<string, string>();
+  const otherWindowTimes = { ...settings, times: ['08:30', '11:30', '14:30', '17:30', '20:30'], eveningTime: undefined };
+  shared.set('rahmat.push.preference.v1', JSON.stringify({ version: 1, id: 'c'.repeat(64), settings: otherWindowTimes, hasActiveReflections: true }));
+  const { state, api } = webHarness(shared);
+  state.permission = 'granted';
+  assert.equal((await api.syncReminders(settings, 2)).status, 'enabled');
+  assert.equal(state.calls.at(-1)?.body?.istighfarSlots, 5, 'the older window\'s explicit choice is read, not rejected');
+  assert.deepEqual((state.calls.at(-1)?.body?.settings as ReminderSettings).times, otherWindowTimes.times);
+  await api.syncReminders({ ...otherWindowTimes, eveningTime: null }, 2);
+  assert.equal(state.calls.at(-1)?.body?.istighfarSlots, 2, 'with the same settings, the slot count follows the current routine');
+  const fresh = webHarness();
+  fresh.state.permission = 'granted';
+  assert.equal((await fresh.api.syncReminders({ ...settings, eveningTime: '21:30' }, 2, true)).scheduled, 2 + 2 + 1);
+  const saved = JSON.parse(fresh.memory.get('rahmat.push.preference.v1')!);
+  assert.equal(saved.istighfarSlots, 2);
+  assert.equal(saved.hasActiveReflections, true, 'the legacy flag is written for older windows');
+  assert.equal(fresh.state.calls.at(-1)?.body?.istighfarSlots, 2);
+  assert.equal((fresh.state.calls.at(-1)?.body?.settings as ReminderSettings).eveningTime, '21:30');
 });

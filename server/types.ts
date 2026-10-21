@@ -1,4 +1,4 @@
-import type { ReminderSettings } from '../src/domain/schedule';
+import type { ReminderScreen, ReminderSettings } from '../src/domain/schedule';
 
 export type BrowserSubscription = {
   endpoint: string;
@@ -10,15 +10,22 @@ export type BrowserSubscription = {
 export type Registration = {
   subscription: BrowserSubscription;
   settings: ReminderSettings;
-  hasActiveReflections: boolean;
+  /** 0–5 istighfar prompts a day: a number only, never an entry or its routine. */
+  istighfarSlots: number;
   timeZone: string;
+};
+
+/** Records stored before routines existed carry only the old active/inactive flag. */
+export type StoredRegistration = Omit<Registration, 'istighfarSlots'> & {
+  istighfarSlots?: number;
+  hasActiveReflections?: boolean;
 };
 
 export type PushNotice = {
   id: string;
   title: string;
   body: string;
-  screen: 'istighfar' | 'today';
+  screen: ReminderScreen;
   quoteId?: string;
   url: string;
   tag: string;
@@ -32,7 +39,7 @@ export type Delivery = {
   attempts: number;
 };
 
-export type DeviceRecord = Registration & {
+export type DeviceRecord = StoredRegistration & {
   version: 1;
   updatedAt: number;
   next: Delivery | null;

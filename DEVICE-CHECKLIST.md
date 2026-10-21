@@ -17,4 +17,17 @@ These are pending checks, not completed test results. Run on both Android and iP
 13. Delete a disposable test entry and verify its counts disappear without changing other entries. Delete all disposable test data and verify records and reminders are gone after restarting.
 14. Check a small phone, large system text, screen reader labels, keyboard overlap, safe areas, and the Arabic text. Core controls should remain accessible without horizontal page overflow.
 
-For release: review the Uzbek religious content, confirm bundle identifiers, supply final brand/store assets and privacy disclosure, and complete account/signing and distribution setup.
+## Version 1.1 checks
+
+15. Install 1.1 over a phone or browser that has 1.0 data. Every intention, note, count and habit must remain; old intentions show "Kuniga 5 × 100".
+16. Add an intention with the default 1 × 33. Count to 33; further taps must not count. Change it to 3 × 10 and confirm today's counts are capped, not deleted; change back and confirm they return.
+17. With only a 2-session routine active, turn reminders on. Only the first two istighfar times should arrive. Pause it and confirm istighfar reminders stop while Sunnah reminders continue.
+18. Turn on the evening Muhosaba reminder at a time after the daytime window. It must arrive with generic text only and open Muhosaba when tapped.
+19. Add personal habits with and without weekdays; confirm each appears only on its days and never in a notification. Remove one and confirm past days stay marked.
+20. Mark Sayyid al-istighfar day and night, and finish one after-prayer tasbih (100). Confirm the day is marked in "So‘nggi 30 kun" and nothing shows a score.
+21. Write, edit and delete an evening Muhosaba entry. Confirm yesterday's intention appears on Bugun the next day (not while Muhosaba is locked), and that entries older than 30 days disappear.
+22. Set a PIN for Muhosaba only: intention names show as "Niyat 1…" on the Istig‘for tab, and Muhosaba asks for the PIN each time it is opened. Switch to the whole-app lock; background the app and confirm it locks again. Five wrong PINs must pause entry.
+23. On a phone with fingerprint or face unlock, enable it and confirm it opens the lock; cancel it and confirm the PIN still works. Confirm "PIN kodni unutdingizmi?" deletes everything and leaves the app unlocked and empty.
+24. Use the Android back button inside every new sheet; it must close the sheet without losing saved data.
+
+For release: review the Uzbek religious content (see CONTENT-REVIEW.md), confirm bundle identifiers, supply final brand/store assets and privacy disclosure, and complete account/signing and distribution setup.

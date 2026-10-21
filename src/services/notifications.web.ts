@@ -1,11 +1,11 @@
-import { normalizeReminderSettings, type ReminderSettings, type ReminderResult } from '../domain/schedule';
+import { normalizeIstighfarSlots, normalizeReminderSettings, type ReminderScreen, type ReminderSettings, type ReminderResult } from '../domain/schedule';
 import { getPwaState, preparePwa } from './pwa.web';
-export type { ReminderSettings, ReminderResult } from '../domain/schedule';
+export type { ReminderScreen, ReminderSettings, ReminderResult } from '../domain/schedule';
 
 const DEVICE_KEY = 'rahmat.push.device.v1';
 const CLEANUP_KEY = 'rahmat.push.cleanup.v1';
 const PREFERENCE_KEY = 'rahmat.push.preference.v1';
-type Plan = { settings: ReminderSettings; hasActiveReflections: boolean };
+type Plan = { settings: ReminderSettings; istighfarSlots: number };
 type SharedPreference = Plan & { version: 1; id: string };
 let queue: Promise<unknown> = Promise.resolve();
 let syncedKey = '';
@@ -24,13 +24,18 @@ function sharedPreference(): SharedPreference | undefined {
   const raw = localStorage.getItem(PREFERENCE_KEY);
   if (raw === null) return undefined;
   try {
-    const value = JSON.parse(raw) as Partial<SharedPreference>;
+    const value = JSON.parse(raw) as Partial<SharedPreference> & { hasActiveReflections?: unknown };
     if (value.version !== 1 || typeof value.id !== 'string' || !/^[a-f0-9]{64}$/.test(value.id)
-      || typeof value.hasActiveReflections !== 'boolean' || !value.settings || typeof value.settings.enabled !== 'boolean') throw new Error();
-    return { version: 1, id: value.id, settings: normalizeReminderSettings(value.settings), hasActiveReflections: value.hasActiveReflections };
+      || !value.settings || typeof value.settings.enabled !== 'boolean') throw new Error();
+    // Records written before routines only stored whether any intention was active.
+    const istighfarSlots = normalizeIstighfarSlots(value.istighfarSlots ?? value.hasActiveReflections);
+    return { version: 1, id: value.id, settings: normalizeReminderSettings(value.settings), istighfarSlots };
   } catch { throw new Error('Saqlangan eslatma sozlamalarini o‘qib bo‘lmadi. Ilovani qayta oching.'); }
 }
-function writePreference(value: SharedPreference): void { localStorage.setItem(PREFERENCE_KEY, JSON.stringify(value)); }
+// The legacy flag keeps an older Rahmat window, still open in another tab, able to read the choice.
+function writePreference(value: SharedPreference): void {
+  localStorage.setItem(PREFERENCE_KEY, JSON.stringify({ ...value, hasActiveReflections: value.istighfarSlots > 0 }));
+}
 function preferenceChanged(stamp: string | null): boolean { return localStorage.getItem(PREFERENCE_KEY) !== stamp; }
 function currentPlan(requested: Plan): Plan {
   const shared = sharedPreference();
@@ -39,11 +44,11 @@ function currentPlan(requested: Plan): Plan {
   // A matching current settings snapshot can still report that entries became active/inactive.
   if (shared.settings.enabled && requested.settings.enabled
     && JSON.stringify(shared.settings) === JSON.stringify(requested.settings)
-    && shared.hasActiveReflections !== requested.hasActiveReflections) {
-    writePreference({ ...shared, hasActiveReflections: requested.hasActiveReflections });
-    return { settings: shared.settings, hasActiveReflections: requested.hasActiveReflections };
+    && shared.istighfarSlots !== requested.istighfarSlots) {
+    writePreference({ ...shared, istighfarSlots: requested.istighfarSlots });
+    return { settings: shared.settings, istighfarSlots: requested.istighfarSlots };
   }
-  return { settings: shared.settings, hasActiveReflections: shared.hasActiveReflections };
+  return { settings: shared.settings, istighfarSlots: shared.istighfarSlots };
 }
 function deviceToken(create = false): string | null {
   let token = localStorage.getItem(DEVICE_KEY);
@@ -95,9 +100,9 @@ async function disable(stamp: string | null): Promise<ReminderResult | null> {
   if (preferenceChanged(stamp)) return null;
   return { status: 'disabled', scheduled: 0 };
 }
-export function syncReminders(settings: ReminderSettings, hasActiveReflections: boolean, requestPermission = false): Promise<ReminderResult> {
+export function syncReminders(settings: ReminderSettings, istighfarSlots: number, requestPermission = false): Promise<ReminderResult> {
   let requested: Plan;
-  try { requested = { settings: normalizeReminderSettings(settings), hasActiveReflections }; }
+  try { requested = { settings: normalizeReminderSettings(settings), istighfarSlots: normalizeIstighfarSlots(istighfarSlots) }; }
   catch (error) { return Promise.reject(error); }
   latestSettings = requested;
   const state = getPwaState();
@@ -149,15 +154,15 @@ export function syncReminders(settings: ReminderSettings, hasActiveReflections: 
         subscription = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: applicationKey(config.publicKey) });
         if (preferenceChanged(stamp)) continue;
       }
-      const key = JSON.stringify([normalized, plan.hasActiveReflections, timeZone, new Date().toDateString(), subscription.endpoint]);
+      const key = JSON.stringify([normalized, plan.istighfarSlots, timeZone, new Date().toDateString(), subscription.endpoint]);
       if (key !== syncedKey || requestPermission || localStorage.getItem(CLEANUP_KEY)) {
-        // normalizeReminderSettings explicitly selects the five public settings fields.
-        await api('subscription', 'PUT', { subscription: subscription.toJSON(), settings: normalized, hasActiveReflections: plan.hasActiveReflections, timeZone }, token);
+        // normalizeReminderSettings explicitly selects the public settings fields; only a slot count, never an entry, is sent.
+        await api('subscription', 'PUT', { subscription: subscription.toJSON(), settings: normalized, istighfarSlots: plan.istighfarSlots, timeZone }, token);
         if (preferenceChanged(stamp)) { syncedKey = ''; continue; }
         localStorage.removeItem(CLEANUP_KEY);
         syncedKey = key;
       }
-      return { status: 'enabled', scheduled: (plan.hasActiveReflections ? 5 : 0) + normalized.sunnahPerDay };
+      return { status: 'enabled', scheduled: plan.istighfarSlots + normalized.sunnahPerDay + (normalized.eveningTime ? 1 : 0) };
     }
     throw new Error('Eslatma sozlamalari boshqa oynada o‘zgardi. Qayta urinib ko‘ring.');
   }).catch((error) => {
@@ -200,15 +205,17 @@ export async function getTestNotificationStatus(): Promise<string> {
   return 'Sinov xabarini yetkazib bo‘lmadi. Internetni tekshiring va bir daqiqadan so‘ng qayta sinang.';
 }
 
-export function subscribeToReminderOpen(listener: (tab: 'istighfar' | 'today', quoteId?: string) => void): () => void {
-  function route(screen: unknown, quoteId?: unknown) { if (screen === 'today' || screen === 'istighfar') listener(screen, typeof quoteId === 'string' ? quoteId : undefined); }
+export function subscribeToReminderOpen(listener: (tab: ReminderScreen, quoteId?: string) => void): () => void {
+  function route(screen: unknown, quoteId?: unknown) {
+    if (screen === 'today' || screen === 'istighfar' || screen === 'reflections') listener(screen, typeof quoteId === 'string' ? quoteId : undefined);
+  }
   const parameters = new URL(location.href).searchParams;
   route(parameters.get('screen'), parameters.get('quoteId'));
   const onMessage = (event: MessageEvent) => {
     if (event.data?.type === 'RAHMAT_NOTIFICATION_OPEN') route(event.data.screen, event.data.quoteId);
     if (event.data?.type === 'RAHMAT_PUSH_SUBSCRIPTION_CHANGED' && latestSettings?.settings.enabled) {
       syncedKey = '';
-      void syncReminders(latestSettings.settings, latestSettings.hasActiveReflections).catch(() => { syncedKey = ''; });
+      void syncReminders(latestSettings.settings, latestSettings.istighfarSlots).catch(() => { syncedKey = ''; });
     }
   };
   navigator.serviceWorker?.addEventListener('message', onMessage);

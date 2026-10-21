@@ -1,6 +1,7 @@
 import { buildReminderPlan, type SunnahReminder } from '../src/domain/schedule';
 import sunnah from '../src/data/sunnah.json';
-import type { Delivery, Registration } from './types';
+import type { Delivery, StoredRegistration } from './types';
+import { istighfarSlotsOf } from './validation';
 
 const MINUTE = 60_000;
 const DAY = 86_400_000;
@@ -59,18 +60,19 @@ export function wallTimeToEpoch(day: string, minute: number, timeZone: string): 
   return matches.length ? Math.min(...matches) : null;
 }
 
-export function deliveriesForDay(registration: Registration, day: string): Delivery[] {
+export function deliveriesForDay(registration: StoredRegistration, day: string): Delivery[] {
   const calendar = new Date(`${day}T12:00:00Z`);
   // buildReminderPlan seeds using local fields, so construct those fields explicitly.
   const seed = new Date(calendar.getUTCFullYear(), calendar.getUTCMonth(), calendar.getUTCDate(), 12);
   const weekday = calendar.getUTCDay() + 1;
-  const plan = buildReminderPlan(registration.settings, registration.hasActiveReflections,
+  const plan = buildReminderPlan(registration.settings, istighfarSlotsOf(registration),
     sunnah.reminders as SunnahReminder[], seed);
   return plan.filter((item) => item.trigger.type === 'daily' || item.trigger.weekday === weekday)
     .flatMap((item): Delivery[] => {
       const dueAt = wallTimeToEpoch(day, item.trigger.hour * 60 + item.trigger.minute, registration.timeZone);
       if (dueAt === null) return [];
-      const end = wallTimeToEpoch(day, registration.settings.dayEnd * 60, registration.timeZone);
+      // The evening Muhosaba prompt may fall after the daytime window; it keeps its own 5 minutes.
+      const end = item.screen === 'reflections' ? null : wallTimeToEpoch(day, registration.settings.dayEnd * 60, registration.timeZone);
       const id = `${day}-${item.identifier}`;
       const quoteId = item.screen === 'today' ? sunnah.reminders.find((content) =>
         content.title === item.title && item.body.startsWith(content.text))?.id : undefined;
@@ -87,7 +89,7 @@ export function deliveriesForDay(registration: Registration, day: string): Deliv
     }).sort((a, b) => a.dueAt - b.dueAt);
 }
 
-export function nextDelivery(registration: Registration, after: number, handled: readonly string[] = []): Delivery | null {
+export function nextDelivery(registration: StoredRegistration, after: number, handled: readonly string[] = []): Delivery | null {
   if (!registration.settings.enabled) return null;
   const day = zonedDay(after, registration.timeZone);
   for (let index = 0; index < 4; index += 1) {

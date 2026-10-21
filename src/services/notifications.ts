@@ -4,12 +4,13 @@ import sunnah from '../data/sunnah.json';
 import {
   buildReminderPlan,
   reminderPlanKey,
+  type ReminderScreen,
   type ReminderSettings,
   type ReminderResult,
   type SunnahReminder,
 } from '../domain/schedule';
 
-export type { ReminderSettings, ReminderResult } from '../domain/schedule';
+export type { ReminderScreen, ReminderSettings, ReminderResult } from '../domain/schedule';
 
 const CHANNEL_ID = 'rahmah-reminders';
 const APP_MARKER = 'rahmah';
@@ -72,7 +73,7 @@ async function ensurePermission(request: boolean): Promise<boolean> {
 
 export function syncReminders(
   settings: ReminderSettings,
-  hasActiveReflections: boolean,
+  istighfarSlots: number,
   requestPermission = false,
 ): Promise<ReminderResult> {
   // Capture the caller's choice before awaiting another queued operation.
@@ -83,7 +84,7 @@ export function syncReminders(
       return { status: 'disabled', scheduled: 0 };
     }
     const now = new Date();
-    const plan = buildReminderPlan(snapshot, hasActiveReflections, sunnah.reminders as SunnahReminder[], now);
+    const plan = buildReminderPlan(snapshot, istighfarSlots, sunnah.reminders as SunnahReminder[], now);
     if (!await ensurePermission(requestPermission)) {
       await Notifications.cancelAllScheduledNotificationsAsync();
       return { status: 'denied', scheduled: 0 };
@@ -162,12 +163,12 @@ export async function getTestNotificationStatus(): Promise<string> {
 
 let lastHandledResponse: string | undefined;
 
-export function subscribeToReminderOpen(listener: (tab: 'istighfar' | 'today', quoteId?: string) => void): () => void {
+export function subscribeToReminderOpen(listener: (tab: ReminderScreen, quoteId?: string) => void): () => void {
   const handle = (response: Notifications.NotificationResponse | null) => {
     if (!response || response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) return;
     const { notification } = response;
     const data = notification.request.content.data;
-    if (data?.app !== APP_MARKER || (data.screen !== 'today' && data.screen !== 'istighfar')) return;
+    if (data?.app !== APP_MARKER || (data.screen !== 'today' && data.screen !== 'istighfar' && data.screen !== 'reflections')) return;
     const responseKey = `${notification.request.identifier}:${notification.date}:${response.actionIdentifier}`;
     if (responseKey === lastHandledResponse) return;
     lastHandledResponse = responseKey;

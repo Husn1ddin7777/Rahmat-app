@@ -1,0 +1,70 @@
+{
+  "verifiedOn": "2026-10-21",
+  "scholarReview": {
+    "status": "pending",
+    "notice": "Arabcha matn hadis manbasidan olingan. O‘zbekcha talaffuz va ma’no tarjimasi olim tekshiruvini kutmoqda."
+  },
+  "items": [
+    {
+      "id": "sayyid-al-istighfar",
+      "title": "Sayyidul istig‘for",
+      "subtitle": "Istig‘forning eng afzali",
+      "kind": "checkoff",
+      "arabic": "اللَّهُمَّ أَنْتَ رَبِّي، لاَ إِلَهَ إِلاَّ أَنْتَ، خَلَقْتَنِي وَأَنَا عَبْدُكَ، وَأَنَا عَلَى عَهْدِكَ وَوَعْدِكَ مَا اسْتَطَعْتُ، أَعُوذُ بِكَ مِنْ شَرِّ مَا صَنَعْتُ، أَبُوءُ لَكَ بِنِعْمَتِكَ عَلَىَّ وَأَبُوءُ لَكَ بِذَنْبِي، فَاغْفِرْ لِي، فَإِنَّهُ لاَ يَغْفِرُ الذُّنُوبَ إِلاَّ أَنْتَ",
+      "transliteration": "Allohumma anta Robbiy, laa ilaaha illaa anta, xolaqtaniy va ana ‘abduka, va ana ‘alaa ‘ahdika va va’dika mastata’tu, a’uuzu bika min sharri maa sona’tu, abuu’u laka bini’matika ‘alayya, va abuu’u laka bizanbiy, fag‘firliy, fa innahu laa yag‘firuz-zunuuba illaa anta.",
+      "meaning": "Allohim, Sen mening Robbimsan, Sendan o‘zga iloh yo‘q. Meni Sen yaratding, men Sening bandangman. Kuchim yetgancha Senga bergan ahdim va va’dang ustidaman. Qilgan ishlarimning yomonligidan Sendan panoh so‘rayman. Menga bergan ne’matingni e’tirof etaman va gunohimni ham e’tirof etaman. Meni mag‘firat qil, chunki gunohlarni Sendan o‘zga hech kim mag‘firat qilmaydi.",
+      "note": "Rasululloh ﷺ bu duoni «sayyidul istig‘for» — istig‘forning eng afzali deb atadilar va uni kunduzi hamda kechasi ishonch bilan aytishning fazilatini bayon qildilar.",
+      "source": "Sahih al-Buxoriy, 6306",
+      "url": "https://sunnah.com/bukhari:6306",
+      "parts": [
+        {
+          "id": "sayyid-al-istighfar-day",
+          "label": "Kunduzi"
+        },
+        {
+          "id": "sayyid-al-istighfar-night",
+          "label": "Kechasi"
+        }
+      ]
+    },
+    {
+      "id": "after-prayer-tasbih",
+      "title": "Namozdan keyingi tasbih",
+      "subtitle": "33 · 33 · 33 va tahlil",
+      "kind": "counter",
+      "note": "Rasululloh ﷺ har namozdan keyin 33 marta tasbih, 33 marta tahmid, 33 marta takbir aytib, yuzinchisini tahlil bilan to‘ldirishni o‘rgatdilar.",
+      "source": "Sahih Muslim 597a",
+      "url": "https://sunnah.com/muslim:597a",
+      "steps": [
+        {
+          "id": "tasbih",
+          "arabic": "سُبْحَانَ اللَّهِ",
+          "transliteration": "Subhanalloh",
+          "meaning": "Alloh barcha nuqsonlardan pokdir",
+          "count": 33
+        },
+        {
+          "id": "tahmid",
+          "arabic": "الْحَمْدُ لِلَّهِ",
+          "transliteration": "Alhamdulillah",
+          "meaning": "Barcha hamd Allohgadir",
+          "count": 33
+        },
+        {
+          "id": "takbir",
+          "arabic": "اللَّهُ أَكْبَرُ",
+          "transliteration": "Allohu akbar",
+          "meaning": "Alloh eng buyukdir",
+          "count": 33
+        },
+        {
+          "id": "tahlil",
+          "arabic": "لاَ إِلَهَ إِلاَّ اللَّهُ وَحْدَهُ لاَ شَرِيكَ لَهُ لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَى كُلِّ شَىْءٍ قَدِيرٌ",
+          "transliteration": "Laa ilaaha illallohu vahdahu laa shariyka lah, lahul-mulku va lahul-hamdu va huva ‘alaa kulli shay’in qodiyr",
+          "meaning": "Allohdan o‘zga iloh yo‘q, U yagona, Uning sherigi yo‘q. Mulk Unikidir, hamd Ungadir va U har narsaga qodirdir.",
+          "count": 1
+        }
+      ]
+    }
+  ]
+}

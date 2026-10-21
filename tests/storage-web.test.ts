@@ -8,7 +8,7 @@ const DAY = '2026-09-27';
 function populated(): AppState {
   return {
     ...createInitialState(),
-    reflections: [{ id: 'one', label: 'Sabr', note: 'Shaxsiy eslatma 🤲', createdAt: '2026-09-27T06:00:00.000Z', archived: false }],
+    reflections: [{ id: 'one', label: 'Sabr', note: 'Shaxsiy eslatma 🤲', createdAt: '2026-09-27T06:00:00.000Z', archived: false, sessions: 5, target: 100 }],
   };
 }
 

@@ -135,6 +135,8 @@ test('push displays a visible fallback for malformed data and discards untrusted
   assert.equal(second.data.screen, 'today');
   assert.equal(second.data.quoteId, undefined);
   assert.equal(second.data.url, undefined);
+  await worker.dispatch('push', { data: { json: () => ({ title: 'Kechki muhosaba', body: 'Bir daqiqa.', screen: 'reflections', quoteId: 'cheerful-face' }) } });
+  assert.equal(worker.effects.shown[2].data.screen, 'reflections');
 });
 
 test('notification click focuses and messages an existing app without navigating or reloading it', async () => {
