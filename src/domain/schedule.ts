@@ -82,7 +82,7 @@ export const PRAYER_REMINDER_BODY = 'Namozdan so‘ng bir lahza istig‘for uchu
 
 export function timeToMinutes(time: string): number {
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
-    throw new Error('Vaqtni HH:mm ko‘rinishida kiriting (masalan, 08:00).');
+    throw new Error('Vaqtni SS:DD ko‘rinishida kiriting (masalan, 08:00).');
   }
   return Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
 }
@@ -95,7 +95,7 @@ function normalizePrayerTimes(value: unknown, required: boolean): Array<string |
   if (!Array.isArray(value) || value.length !== PRAYER_NAMES.length) throw new Error('Beshta namoz uchun vaqt maydoni bo‘lishi kerak.');
   const times = value.map((time: unknown) => {
     if (time === null || time === '') return null;
-    if (typeof time !== 'string') throw new Error('Namoz vaqtini HH:mm ko‘rinishida kiriting.');
+    if (typeof time !== 'string') throw new Error('Namoz vaqtini SS:DD ko‘rinishida kiriting.');
     timeToMinutes(time);
     return time;
   });
@@ -138,7 +138,7 @@ export function normalizeReminderSettings(settings: ReminderSettings): Normalize
   }
   const eveningTime = settings.eveningTime ?? null;
   if (eveningTime !== null) {
-    if (typeof eveningTime !== 'string') throw new Error('Kechki muhosaba vaqtini HH:mm ko‘rinishida kiriting.');
+    if (typeof eveningTime !== 'string') throw new Error('Kechki muhosaba vaqtini SS:DD ko‘rinishida kiriting.');
     timeToMinutes(eveningTime);
   }
   const script = settings.script ?? 'latin';

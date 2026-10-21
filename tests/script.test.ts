@@ -56,6 +56,7 @@ test('Arabic, links, hadith references and product names are left as they are', 
   assert.equal(toCyrillic('Fayl: rahmat-zaxira-2026-10-22.json'), 'Файл: rahmat-zaxira-2026-10-22.json');
   assert.equal(toCyrillic('iPhone eslatmalari uchun iOS 16.4'), 'iPhone эслатмалари учун iOS 16.4');
   assert.equal(toCyrillic('PIN kod va Face ID'), 'PIN код ва Face ID');
+  assert.equal(toCyrillic('Telegram yoki Google Drive'), 'Telegram ёки Google Drive');
   assert.equal(toCyrillic('«Kun yakunida bir daqiqa»'), '«Кун якунида бир дақиқа»');
   assert.equal(toCyrillic('SS:DD · 5 × 100'), 'СС:ДД · 5 × 100');
 });

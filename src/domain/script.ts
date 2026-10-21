@@ -23,7 +23,7 @@ const WORDS: Record<string, string> = {
 /** Short weekday labels whose letters alone would read oddly in Cyrillic (exact case). */
 const ABBREVIATIONS: Record<string, string> = { Ch: 'Чо', Sh: 'Ша', Ya: 'Як' };
 /** Names that stay in Latin letters in a Cyrillic interface. */
-const KEEP = ['iPhone', 'iOS', 'Android', 'Safari', 'Chrome', 'Google', 'Telegram', 'Face ID', 'HTTPS', 'PIN', 'APK', 'Focus', 'GitHub', 'Wi-Fi'];
+const KEEP = ['iPhone', 'iOS', 'Android', 'Safari', 'Chrome', 'Google Drive', 'Google', 'Telegram', 'Face ID', 'HTTPS', 'PIN', 'APK', 'Focus', 'GitHub', 'Wi-Fi'];
 
 function isLatin(char: string | undefined): boolean {
   return !!char && /[A-Za-z]/.test(char);
