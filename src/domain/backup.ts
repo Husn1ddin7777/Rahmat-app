@@ -103,7 +103,9 @@ export function fromBase64(text: string): Uint8Array {
 // --- Backup format
 
 function cleanPassphrase(passphrase: string): string {
-  return passphrase.trim().normalize('NFC');
+  const trimmed = passphrase.trim();
+  // The same letters typed on different keyboards become the same bytes.
+  try { return trimmed.normalize('NFC'); } catch { return trimmed; }
 }
 
 export function passphraseProblem(passphrase: string): string | null {

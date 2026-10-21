@@ -12,10 +12,6 @@ export function secureRandomBytes(length: number): Uint8Array {
   return getRandomBytes(length);
 }
 
-function cancelled(error: unknown): boolean {
-  return error instanceof Error && /cancel/i.test(`${error.name} ${error.message}`);
-}
-
 /**
  * Writes the sealed backup where the user chooses: into a folder they pick
  * (Downloads, a memory card…) or through the share sheet (Telegram, Drive…).
@@ -24,7 +20,8 @@ function cancelled(error: unknown): boolean {
 export async function saveBackup(name: string, text: string, target: SaveTarget): Promise<boolean> {
   if (target === 'folder') {
     let folder: Directory;
-    try { folder = await Directory.pickDirectoryAsync(); } catch (error) { if (cancelled(error)) return false; throw error; }
+    // Closing the folder picker rejects; that is a choice, not an error to show.
+    try { folder = await Directory.pickDirectoryAsync(); } catch { return false; }
     if (!folder) return false;
     const file = folder.createFile(name, 'application/json');
     file.write(text);
