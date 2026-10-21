@@ -6,13 +6,15 @@ Manbalar 2026-10-21 sanasida hadis matniga solishtirildi (Sahih al-Buxoriy va Sa
 O‘zbekcha matnlar **mazmunan bayon** (parafraz) — so‘zma-so‘z tarjima emas. Har bir bandni manba bilan solishtirib, belgilang:
 
 - [ ] — tasdiqlandi; o‘zgartirish kerak bo‘lsa, «Izoh» qatoriga yozing.
-- Barchasi tasdiqlangach, uchala fayldagi `scholarReview.status` qiymatini `approved` ga o‘zgartiring.
+- Barchasi tasdiqlangach, har bir fayldagi `scholarReview.status` qiymatini `approved` ga o‘zgartiring.
 
 | Bo‘lim | Holat | Bandlar |
 | --- | --- | --- |
 | Sunnat eslatmalari (`sunnah.json`) | tekshiruv kutilmoqda | 47 |
 | Zikrlar (`adhkar.json`) | tekshiruv kutilmoqda | 2 |
 | Kechki muhosaba savollari (`muhosaba.json`) | tekshiruv kutilmoqda | 3 |
+| Nafl ro‘za kunlari va hijriy taqvim (`fasting.json`) | tekshiruv kutilmoqda | 8 |
+| Namozdan so‘ng istig‘for (`prayer.json`) | tekshiruv kutilmoqda | 1 |
 
 ## Ochiq savollar
 
@@ -20,6 +22,13 @@ O‘zbekcha matnlar **mazmunan bayon** (parafraz) — so‘zma-so‘z tarjima em
 2. Sayyidul istig‘forning arabcha matni manbadagidek «عَلَىَّ» yozilgan; «عَلَيَّ» shaklida ko‘rsatilsinmi?
 3. Talaffuz yozuvi: cho‘ziq unlilar «aa», «ii», «uu» bilan berilgan. Shu uslub ma’qulmi?
 4. Zikr ma’no tarjimalari kimning tarjimasiga tayanishi kerak (masalan, rasmiy nashr)?
+5. Oyning 13–15-kunlari («Ayyomul biyz») Sunan at-Tirmiziy 761 rivoyatiga tayanadi — Buxoriy va Muslimda yo‘q. Hozir ilova faqat «har oyda istalgan uch kun» (Sahih Muslim 1160) deydi. 13–15-kunlarni ham ko‘rsataylikmi?
+6. Ikki hayit kuni ro‘za tutilmasligi (Sahih al-Buxoriy 1991, Sahih Muslim 1138) taqvimda alohida eslatilsinmi? Hijriy sana taxminiy bo‘lgani uchun hozircha ko‘rsatilmagan.
+7. Hijriy sana arifmetik jadval bilan hisoblanadi va foydalanuvchi uni ±2 kunga to‘g‘rilay oladi. Taqvimdagi ogohlantirish matni yetarlimi?
+8. «Tosuo» (Muharramning 9-kuni) nomi va matni: hadisdagi «to‘qqizinchi kuni ro‘za tutish» niyati Ashuro bilan birga deb tushuntirilsinmi yoki hozirgidek betaraf qolsinmi?
+9. Namozdan so‘ng keladigan eslatma matni: «Namozdan so‘ng bir lahza istig‘for uchun vaqt ajrating.» Ma’qulmi?
+10. Kirill yozuvidagi diniy atamalar (masalan, «Расулуллоҳ ﷺ», «Саййидул истиғфор», «Шаъбон») avtomatik o‘giriladi — namunalarni pastdagi «Kirill yozuvi» bo‘limida tekshiring.
+11. Zikrlar ovozi: yozuvlarni kim o‘qiydi va tajvid bo‘yicha kim tekshiradi? (Qarang: AUDIO.md)
 
 ## Istig‘for izohi
 
@@ -398,4 +407,99 @@ O‘zbekcha matnlar **mazmunan bayon** (parafraz) — so‘zma-so‘z tarjima em
 - **Savol:** Bugun qaysi ne’mat uchun shukr qilasiz? _(namuna: Masalan, sog‘lik, oila, bir yaxshi suhbat…)_
 - **Savol:** Nimani yaxshiroq qilishni istaysiz? _(namuna: O‘zingizga muloyim bo‘ling: bitta kichik narsa yetarli.)_
 - **Savol:** Ertangi kun uchun bitta kichik niyat _(namuna: Masalan, onamga qo‘ng‘iroq qilish.)_
+- [ ] Tasdiqlandi · Izoh:
+
+## Namozdan so‘ng istig‘for
+
+- **Manba:** [Sahih Muslim 591](https://sunnah.com/muslim:591)
+- **Matn:** Rasululloh ﷺ namozni tugatgach, uch marta istig‘for aytar edilar.
+- **Vaqtlar haqida:** Namoz vaqtlarini masjid yoki rasmiy taqvimdan oling — ular yil davomida o‘zgaradi, vaqti-vaqti bilan yangilab turing. Eslatma aynan siz yozgan vaqtda keladi: odatda namozdan 10–15 daqiqa keyingi vaqtni yozing.
+- [ ] Tasdiqlandi · Izoh:
+
+## Nafl ro‘za kunlari (8)
+
+- **Kirish:** Rasululloh ﷺ tutgan yoki tavsiya qilgan nafl ro‘zalar. Bu eslatma — majburiyat emas, imkon.
+- **Taqvim haqida:** Hijriy sana jadval (arifmetik) hisob bilan topiladi va taxminiy: oy boshi hilolni ko‘rishga qarab bir kunga farq qilishi mumkin. Ro‘za va hayit kunlarini O‘zbekiston musulmonlari idorasi e’loniga qarab belgilang. Kerak bo‘lsa, sanani ±1–2 kunga to‘g‘rilang.
+- [ ] Tasdiqlandi · Izoh:
+
+### Arafa kuni · `arafah`
+
+- **Qachon:** hijriy 9-kun, 12-oy · bir kun oldin kechqurun eslatma (ixtiyoriy)
+- **Manba:** [Sahih Muslim 1162a](https://sunnah.com/muslim:1162a)
+- **Matn:** Rasululloh ﷺ Arafa kuni ro‘zasi o‘tgan va keyingi yil gunohlariga kafforat bo‘lishini Allohdan umid qilishlarini aytganlar.
+- **Eslatma sarlavhasi:** Ertaga — Arafa kuni
+- [ ] Tasdiqlandi · Izoh:
+
+### Tosuo kuni · `tasua`
+
+- **Qachon:** hijriy 9-kun, 1-oy · bir kun oldin kechqurun eslatma (ixtiyoriy)
+- **Manba:** [Sahih Muslim 1134b](https://sunnah.com/muslim:1134b)
+- **Matn:** Rasululloh ﷺ Ashuro ro‘zasini tutganlarida, kelasi yilga yetsalar, Muharramning to‘qqizinchi kuni ro‘za tutishlarini aytganlar.
+- **Eslatma sarlavhasi:** Ertaga — Tosuo kuni
+- [ ] Tasdiqlandi · Izoh:
+
+### Ashuro kuni · `ashura`
+
+- **Qachon:** hijriy 10-kun, 1-oy · bir kun oldin kechqurun eslatma (ixtiyoriy)
+- **Manba:** [Sahih Muslim 1162a](https://sunnah.com/muslim:1162a)
+- **Matn:** Rasululloh ﷺ Ashuro kuni ro‘zasi o‘tgan bir yil gunohlariga kafforat bo‘lishini Allohdan umid qilishlarini aytganlar.
+- **Eslatma sarlavhasi:** Ertaga — Ashuro kuni
+- [ ] Tasdiqlandi · Izoh:
+
+### Shavvoldan olti kun · `shawwal`
+
+- **Qachon:** hijriy 2-kun, 10-oy · bir kun oldin kechqurun eslatma (ixtiyoriy)
+- **Manba:** [Sahih Muslim 1164a](https://sunnah.com/muslim:1164a)
+- **Matn:** Rasululloh ﷺ Ramazon ro‘zasidan so‘ng Shavvoldan olti kun ro‘za tutgan kishi go‘yo doimiy ro‘za tutgandek bo‘lishini aytganlar.
+- **Eslatma sarlavhasi:** Hayitdan so‘ng — Shavvol ro‘zalari
+- [ ] Tasdiqlandi · Izoh:
+
+### Muharram oyi · `muharram`
+
+- **Qachon:** hijriy 1-oy davomida
+- **Manba:** [Sahih Muslim 1163a](https://sunnah.com/muslim:1163a)
+- **Matn:** Rasululloh ﷺ Ramazondan keyingi eng afzal ro‘za — Allohning oyi Muharramdagi ro‘za ekanini aytganlar.
+- [ ] Tasdiqlandi · Izoh:
+
+### Sha’bon oyi · `shaban`
+
+- **Qachon:** hijriy 8-oy davomida
+- **Manba:** [Sahih al-Buxoriy, 1969](https://sunnah.com/bukhari:1969)
+- **Matn:** Oisha (r.a.) Rasululloh ﷺ Ramazondan boshqa oyni to‘liq tutmaganlarini va boshqa biror oyda Sha’bondagidan ko‘p ro‘za tutganlarini ko‘rmaganini aytgan.
+- [ ] Tasdiqlandi · Izoh:
+
+### Har dushanba · `monday`
+
+- **Qachon:** har hafta
+- **Manba:** [Sahih Muslim 1162e](https://sunnah.com/muslim:1162e)
+- **Matn:** Rasululloh ﷺ dushanba ro‘zasi haqida so‘ralganda, o‘sha kuni tug‘ilganlarini va o‘sha kuni o‘zlariga vahiy tushirilganini aytganlar.
+- [ ] Tasdiqlandi · Izoh:
+
+### Har oyda uch kun · `three-days`
+
+- **Qachon:** har oyda
+- **Manba:** [Sahih Muslim 1160](https://sunnah.com/muslim:1160)
+- **Matn:** Oisha (r.a.) Rasululloh ﷺ har oyda uch kun ro‘za tutganlarini va bu kunlarni oyning qaysi qismiga to‘g‘ri kelishiga qaramaganlarini aytgan.
+- [ ] Tasdiqlandi · Izoh:
+
+## Kirill yozuvi (namunalar)
+
+Kirill yozuvi tanlanganda ilova matnlari avtomatik o‘giriladi. Diniy atamalar to‘g‘ri chiqayotganini tekshiring:
+
+- Rasululloh ﷺ bir kunda Allohdan 100 marta mag‘firat so‘rashlarini aytganlar. Har bir niyat uchun kunlik reja — necha mahal va har mahalda nechta — o‘zingiz tanlagan va istalgan payt o‘zgartirishingiz mumkin bo‘lgan maqsad; keltirilgan hadisda aynan shunday jadval belgilanmagan.
+  - Расулуллоҳ ﷺ бир кунда Аллоҳдан 100 марта мағфират сўрашларини айтганлар. Ҳар бир ният учун кунлик режа — неча маҳал ва ҳар маҳалда нечта — ўзингиз танлаган ва исталган пайт ўзгартиришингиз мумкин бўлган мақсад; келтирилган ҳадисда айнан шундай жадвал белгиланмаган.
+- Sayyidul istig‘for
+  - Саййидул истиғфор
+- Namozdan keyingi tasbih
+  - Намоздан кейинги тасбиҳ
+- Rasululloh ﷺ namozni tugatgach, uch marta istig‘for aytar edilar.
+  - Расулуллоҳ ﷺ намозни тугатгач, уч марта истиғфор айтар эдилар.
+- Rasululloh ﷺ Arafa kuni ro‘zasi o‘tgan va keyingi yil gunohlariga kafforat bo‘lishini Allohdan umid qilishlarini aytganlar.
+  - Расулуллоҳ ﷺ Арафа куни рўзаси ўтган ва кейинги йил гуноҳларига каффорат бўлишини Аллоҳдан умид қилишларини айтганлар.
+- Rasululloh ﷺ Ashuro ro‘zasini tutganlarida, kelasi yilga yetsalar, Muharramning to‘qqizinchi kuni ro‘za tutishlarini aytganlar.
+  - Расулуллоҳ ﷺ Ашуро рўзасини тутганларида, келаси йилга етсалар, Муҳаррамнинг тўққизинчи куни рўза тутишларини айтганлар.
+- Rasululloh ﷺ Ashuro kuni ro‘zasi o‘tgan bir yil gunohlariga kafforat bo‘lishini Allohdan umid qilishlarini aytganlar.
+  - Расулуллоҳ ﷺ Ашуро куни рўзаси ўтган бир йил гуноҳларига каффорат бўлишини Аллоҳдан умид қилишларини айтганлар.
+- Rasululloh ﷺ Ramazon ro‘zasidan so‘ng Shavvoldan olti kun ro‘za tutgan kishi go‘yo doimiy ro‘za tutgandek bo‘lishini aytganlar.
+  - Расулуллоҳ ﷺ Рамазон рўзасидан сўнг Шавволдан олти кун рўза тутган киши гўё доимий рўза тутгандек бўлишини айтганлар.
 - [ ] Tasdiqlandi · Izoh:

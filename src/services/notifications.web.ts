@@ -1,11 +1,12 @@
-import { normalizeIstighfarSlots, normalizeReminderSettings, type ReminderScreen, type ReminderSettings, type ReminderResult } from '../domain/schedule';
+import { istighfarPrompts, normalizeIstighfarSlots, normalizeReminderSettings, type NormalizedReminderSettings, type ReminderScreen, type ReminderSettings, type ReminderResult } from '../domain/schedule';
+import type { Script } from '../domain/script';
 import { getPwaState, preparePwa } from './pwa.web';
 export type { ReminderScreen, ReminderSettings, ReminderResult } from '../domain/schedule';
 
 const DEVICE_KEY = 'rahmat.push.device.v1';
 const CLEANUP_KEY = 'rahmat.push.cleanup.v1';
 const PREFERENCE_KEY = 'rahmat.push.preference.v1';
-type Plan = { settings: ReminderSettings; istighfarSlots: number };
+type Plan = { settings: NormalizedReminderSettings; istighfarSlots: number };
 type SharedPreference = Plan & { version: 1; id: string };
 let queue: Promise<unknown> = Promise.resolve();
 let syncedKey = '';
@@ -162,7 +163,7 @@ export function syncReminders(settings: ReminderSettings, istighfarSlots: number
         localStorage.removeItem(CLEANUP_KEY);
         syncedKey = key;
       }
-      return { status: 'enabled', scheduled: plan.istighfarSlots + normalized.sunnahPerDay + (normalized.eveningTime ? 1 : 0) };
+      return { status: 'enabled', scheduled: istighfarPrompts(normalized, plan.istighfarSlots).length + normalized.sunnahPerDay + (normalized.eveningTime ? 1 : 0) };
     }
     throw new Error('Eslatma sozlamalari boshqa oynada o‘zgardi. Qayta urinib ko‘ring.');
   }).catch((error) => {
@@ -174,7 +175,8 @@ export function syncReminders(settings: ReminderSettings, istighfarSlots: number
     throw error;
   });
 }
-export function sendTestNotification(): Promise<ReminderResult> {
+/** The server words the test in the script saved with the device's settings. */
+export function sendTestNotification(_script?: Script): Promise<ReminderResult> {
   return serialize(async () => {
     const state = getPwaState();
     if (state.ios && !state.installed) return { status: 'install-required', scheduled: 0 };

@@ -48,6 +48,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Recordings uploaded to assets/audio are linked here, so adding one on GitHub is enough.
+      - name: Link adhkar recordings
+        run: node scripts/audio-sync.cjs
+
       - name: Typecheck and test
         run: |
           npm run typecheck

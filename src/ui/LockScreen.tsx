@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 import { LockKeyhole } from 'lucide-react-native';
 import { pauseAfterFailures, verifyPin } from '../domain/lock';
 import type { PinRecord } from '../domain/model';
 import { unlockWithBiometrics } from '../services/biometrics';
 import { colors as c, s } from '../theme';
 import { Button } from './controls';
+import { Text, useScript } from './text';
 import { PinPad } from './PinPad';
 
 // Shared across lock screens for this app session, so switching tabs cannot reset the pause.
@@ -16,6 +17,7 @@ let pausedUntil = 0;
 export function LockScreen({ pin, biometrics, onUnlock, onForgot, title, subtitle }: {
   pin: PinRecord; biometrics: boolean; onUnlock: () => void; onForgot: () => Promise<void>; title: string; subtitle: string;
 }) {
+  const script = useScript();
   const [value, setValue] = useState('');
   const [message, setMessage] = useState('');
   const [checking, setChecking] = useState(false);
@@ -35,8 +37,8 @@ export function LockScreen({ pin, biometrics, onUnlock, onForgot, title, subtitl
   }, [waiting]);
 
   const tryBiometrics = useCallback(async () => {
-    if (await unlockWithBiometrics()) { failures = 0; if (live.current) unlock.current(); }
-  }, []);
+    if (await unlockWithBiometrics(script)) { failures = 0; if (live.current) unlock.current(); }
+  }, [script]);
   // Offer device unlock once when the screen appears; the button can ask again.
   useEffect(() => { if (biometrics) void tryBiometrics(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -1,0 +1,95 @@
+{
+  "verifiedOn": "2026-10-22",
+  "scholarReview": {
+    "status": "pending",
+    "notice": "Ro‘za kunlari haqidagi matnlar hadis manbasiga solishtirildi. O‘zbekcha bayon olim tomonidan hali tasdiqlanmagan."
+  },
+  "calendarNotice": "Hijriy sana jadval (arifmetik) hisob bilan topiladi va taxminiy: oy boshi hilolni ko‘rishga qarab bir kunga farq qilishi mumkin. Ro‘za va hayit kunlarini O‘zbekiston musulmonlari idorasi e’loniga qarab belgilang. Kerak bo‘lsa, sanani ±1–2 kunga to‘g‘rilang.",
+  "intro": "Rasululloh ﷺ tutgan yoki tavsiya qilgan nafl ro‘zalar. Bu eslatma — majburiyat emas, imkon.",
+  "days": [
+    {
+      "id": "arafah",
+      "title": "Arafa kuni",
+      "when": { "type": "date", "month": 12, "day": 9 },
+      "text": "Rasululloh ﷺ Arafa kuni ro‘zasi o‘tgan va keyingi yil gunohlariga kafforat bo‘lishini Allohdan umid qilishlarini aytganlar.",
+      "source": "Sahih Muslim 1162a",
+      "url": "https://sunnah.com/muslim:1162a",
+      "contentType": "paraphrase",
+      "remind": true,
+      "reminderTitle": "Ertaga — Arafa kuni"
+    },
+    {
+      "id": "tasua",
+      "title": "Tosuo kuni",
+      "when": { "type": "date", "month": 1, "day": 9 },
+      "text": "Rasululloh ﷺ Ashuro ro‘zasini tutganlarida, kelasi yilga yetsalar, Muharramning to‘qqizinchi kuni ro‘za tutishlarini aytganlar.",
+      "source": "Sahih Muslim 1134b",
+      "url": "https://sunnah.com/muslim:1134b",
+      "contentType": "paraphrase",
+      "remind": true,
+      "reminderTitle": "Ertaga — Tosuo kuni"
+    },
+    {
+      "id": "ashura",
+      "title": "Ashuro kuni",
+      "when": { "type": "date", "month": 1, "day": 10 },
+      "text": "Rasululloh ﷺ Ashuro kuni ro‘zasi o‘tgan bir yil gunohlariga kafforat bo‘lishini Allohdan umid qilishlarini aytganlar.",
+      "source": "Sahih Muslim 1162a",
+      "url": "https://sunnah.com/muslim:1162a",
+      "contentType": "paraphrase",
+      "remind": true,
+      "reminderTitle": "Ertaga — Ashuro kuni"
+    },
+    {
+      "id": "shawwal",
+      "title": "Shavvoldan olti kun",
+      "when": { "type": "date", "month": 10, "day": 2 },
+      "text": "Rasululloh ﷺ Ramazon ro‘zasidan so‘ng Shavvoldan olti kun ro‘za tutgan kishi go‘yo doimiy ro‘za tutgandek bo‘lishini aytganlar.",
+      "source": "Sahih Muslim 1164a",
+      "url": "https://sunnah.com/muslim:1164a",
+      "contentType": "paraphrase",
+      "remind": true,
+      "reminderTitle": "Hayitdan so‘ng — Shavvol ro‘zalari"
+    },
+    {
+      "id": "muharram",
+      "title": "Muharram oyi",
+      "when": { "type": "month", "month": 1 },
+      "text": "Rasululloh ﷺ Ramazondan keyingi eng afzal ro‘za — Allohning oyi Muharramdagi ro‘za ekanini aytganlar.",
+      "source": "Sahih Muslim 1163a",
+      "url": "https://sunnah.com/muslim:1163a",
+      "contentType": "paraphrase",
+      "remind": false
+    },
+    {
+      "id": "shaban",
+      "title": "Sha’bon oyi",
+      "when": { "type": "month", "month": 8 },
+      "text": "Oisha (r.a.) Rasululloh ﷺ Ramazondan boshqa oyni to‘liq tutmaganlarini va boshqa biror oyda Sha’bondagidan ko‘p ro‘za tutganlarini ko‘rmaganini aytgan.",
+      "source": "Sahih al-Buxoriy, 1969",
+      "url": "https://sunnah.com/bukhari:1969",
+      "contentType": "paraphrase",
+      "remind": false
+    },
+    {
+      "id": "monday",
+      "title": "Har dushanba",
+      "when": { "type": "weekly", "weekday": 1 },
+      "text": "Rasululloh ﷺ dushanba ro‘zasi haqida so‘ralganda, o‘sha kuni tug‘ilganlarini va o‘sha kuni o‘zlariga vahiy tushirilganini aytganlar.",
+      "source": "Sahih Muslim 1162e",
+      "url": "https://sunnah.com/muslim:1162e",
+      "contentType": "paraphrase",
+      "remind": false
+    },
+    {
+      "id": "three-days",
+      "title": "Har oyda uch kun",
+      "when": { "type": "monthly" },
+      "text": "Oisha (r.a.) Rasululloh ﷺ har oyda uch kun ro‘za tutganlarini va bu kunlarni oyning qaysi qismiga to‘g‘ri kelishiga qaramaganlarini aytgan.",
+      "source": "Sahih Muslim 1160",
+      "url": "https://sunnah.com/muslim:1160",
+      "contentType": "paraphrase",
+      "remind": false
+    }
+  ]
+}

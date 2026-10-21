@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import sunnah from '../src/data/sunnah.json';
 import {
   buildReminderPlan,
+  MAX_FASTING_REMINDERS,
   MAX_SCHEDULED_REMINDERS,
   normalizeReminderSettings,
   reminderPlanKey,
@@ -23,7 +24,7 @@ test('all active entries share five daily prompts and at most 26 calendar reques
   const daily = plan.filter((item) => item.trigger.type === 'daily');
   assert.equal(daily.length, 5);
   assert.deepEqual(daily.map((item) => item.trigger.hour * 60 + item.trigger.minute), settings.times.map(timeToMinutes));
-  assert.equal(plan.length, MAX_SCHEDULED_REMINDERS - 1, 'without the optional evening prompt');
+  assert.equal(plan.length, MAX_SCHEDULED_REMINDERS - 1 - MAX_FASTING_REMINDERS, 'without the optional evening and fasting prompts');
   assert.equal(new Set(plan.map((item) => item.identifier)).size, plan.length);
 });
 
@@ -33,7 +34,7 @@ test('every weekday receives the requested number of distinct daylight reminders
       const plan = buildReminderPlan({ ...settings, sunnahPerDay }, 5, content, new Date(2026, 0, date));
       assert.ok(plan.length <= MAX_SCHEDULED_REMINDERS);
       for (let weekday = 1; weekday <= 7; weekday += 1) {
-        const items = plan.filter((item) => item.trigger.type === 'daily' || item.trigger.weekday === weekday);
+        const items = plan.filter((item) => item.trigger.type === 'daily' || (item.trigger.type === 'weekly' && item.trigger.weekday === weekday));
         const minutes = items.map((item) => item.trigger.hour * 60 + item.trigger.minute);
         assert.equal(items.length, 5 + sunnahPerDay);
         assert.equal(new Set(minutes).size, minutes.length);
@@ -47,7 +48,7 @@ test('a narrow valid waking window still has five unique slots and no collisions
   const narrow: ReminderSettings = { ...settings, dayStart: 10, dayEnd: 11, times: ['10:00', '10:01', '10:02', '10:03', '10:04'] };
   const plan = buildReminderPlan(narrow, 5, content, day);
   for (let weekday = 1; weekday <= 7; weekday += 1) {
-    const minutes = plan.filter((item) => item.trigger.type === 'daily' || item.trigger.weekday === weekday)
+    const minutes = plan.filter((item) => item.trigger.type === 'daily' || (item.trigger.type === 'weekly' && item.trigger.weekday === weekday))
       .map((item) => item.trigger.hour * 60 + item.trigger.minute);
     assert.equal(new Set(minutes).size, 8);
     assert.ok(minutes.every((minute) => minute >= 600 && minute < 660));
@@ -110,14 +111,14 @@ test('istighfar prompts follow the routine: a 2-session routine uses the first t
 test('the optional evening Muhosaba prompt is generic, may fall after the daytime window and avoids Sunnah minutes', () => {
   const evening = { ...settings, eveningTime: '21:30' };
   const plan = buildReminderPlan(evening, 5, content, day);
-  assert.equal(plan.length, MAX_SCHEDULED_REMINDERS);
+  assert.equal(plan.length, MAX_SCHEDULED_REMINDERS - MAX_FASTING_REMINDERS);
   const prompt = plan.find((item) => item.screen === 'reflections')!;
   assert.deepEqual(prompt.trigger, { type: 'daily', hour: 21, minute: 30 });
   assert.equal(prompt.identifier, 'rahmah.evening');
   assert.ok(!/qayd|niyat:|gunoh/i.test(prompt.title + prompt.body));
   const atNoon = buildReminderPlan({ ...settings, eveningTime: '12:00' }, 0, content, day);
   for (let weekday = 1; weekday <= 7; weekday += 1) {
-    const minutes = atNoon.filter((item) => item.trigger.type === 'daily' || item.trigger.weekday === weekday)
+    const minutes = atNoon.filter((item) => item.trigger.type === 'daily' || (item.trigger.type === 'weekly' && item.trigger.weekday === weekday))
       .map((item) => item.trigger.hour * 60 + item.trigger.minute);
     assert.equal(new Set(minutes).size, minutes.length);
   }

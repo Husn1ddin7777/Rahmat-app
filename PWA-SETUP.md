@@ -41,6 +41,10 @@ Bu buyruq VAPID kalitlarini yaratadi va Cloudflare secrets xizmatiga yuboradi. M
 
 ## Yangilash va tekshirish
 
+**1.2 versiyasiga yangilash.** `npm run deploy:pwa` web ilovani va serverni birga yangilaydi. Server 1.1 dan kelgan so‘rovlarni ham qabul qiladi; yangi sozlamalar (yozuv, namozdan so‘ng eslatma, ro‘za kunlari, hijriy sana tuzatmasi) bo‘lmasa, odatiy qiymatlar olinadi. Saqlangan qaydlar o‘zgarmaydi. Yangilanishdan oldin ochiq Rahmat oynalarini yoping: eski oyna yangi sozlamalarni bilmaydi va ularni saqlamay qolishi mumkin. Zikr yozuvlari (`assets/audio`) `deploy:pwa` paytida avtomatik ulanadi.
+
+**Brauzerdagi qaydlarni Android ilovaga ko‘chirish:** brauzerda Eslatmalar → Zaxira nusxa → Zaxira yaratish → **Yuklab olish**; faylni telefonga o‘tkazing va Android ilovada Zaxira nusxa → **Zaxira faylini tanlash**.
+
 **1.1 versiyasiga yangilash.** `npm run deploy:pwa` web ilovani ham, serverni ham birga yangilaydi. Server eski o‘rnatilgan nusxalardan kelgan so‘rovlarni ham qabul qiladi, shuning uchun eslatmalar uzilmaydi. Ilova yangi versiyada birinchi ochilganda saqlangan qaydlar avtomatik yangi formatga o‘tadi va hech narsa o‘chmaydi; avvalgi niyatlar 5 × 100 rejasida qoladi. Yangilanishdan oldin barcha ochiq Rahmat oynalarini yoping: eski oyna yangi formatdagi qaydlarni o‘qiy olmaydi va xato ko‘rsatadi (qaydlar o‘chmaydi).
 
 Safari’da “Response served by service worker has redirections” xatosi chiqsa, boshqa Rahmat oynalarini yoping, [tiklash sahifasini](https://rahmat.husniddinizzatullayev7777.workers.dev/repair.html) Safari’da oching va **Rahmatni tiklash** ni bosing. Bu niyatlar, sanoqlar, mahalliy saqlash yoki bildirishnoma ruxsatini o‘chirmaydi. Keyin bosh ekrandagi ilovani yopib, qayta oching. Ilova va Safari ma’lumotlarini tozalash shart emas.
@@ -53,6 +57,6 @@ Safari’da “Response served by service worker has redirections” xatosi chiq
 - Bosh ekrandagi ilovadan bildirishnomani o‘chiring; qayta kelmasligini tekshiring.
 - Sinov: ekran qulflanganda xabar kelishi, xabar bosilganda kerakli bo‘lim va Sunnat matni ochilishi, ertangi vaqtlar, vaqt mintaqasi va Focus holati.
 
-Server faqat bildirishnoma obunasi, vaqtlar, vaqt mintaqasi va faol niyat bor-yo‘qligini saqlaydi. Niyat nomi, izohi, identifikatori va sanoqlari yuborilmaydi. Server yozuvi 90 kun ilova ochilmasa eskiradi; ilovani ochish muddatni yangilaydi. Eski xabarlar 5 daqiqalik yetkazish oynasidan keyin tashlab yuboriladi.
+Server faqat bildirishnoma obunasi, eslatma vaqtlari (kiritilgan bo‘lsa, namoz vaqtlari ham), vaqt mintaqasi, kunlik istig‘for eslatmalari soni, yozuv turi, ro‘za eslatmasi va hijriy sana tuzatmasini saqlaydi. Niyat nomi, izohi, identifikatori va sanoqlari yuborilmaydi. Server yozuvi 90 kun ilova ochilmasa eskiradi; ilovani ochish muddatni yangilaydi. Eski xabarlar 5 daqiqalik yetkazish oynasidan keyin tashlab yuboriladi.
 
 Cloudflare joylashuvi, HTTPS sahifa, o‘rnatish manifesti, service worker, ikonka va bildirishnoma xizmati sozlamalari tekshirildi. Haqiqiy iPhone’da o‘rnatish va ekran qulflangan paytda sinov xabarining kelishi hali telefonda tekshirilishi kerak.

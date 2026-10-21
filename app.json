@@ -3,7 +3,7 @@
     "name": "Rahmat",
     "slug": "rahmat",
     "scheme": "rahmat",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "ios": {
@@ -24,7 +24,10 @@
       "blockedPermissions": [
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.SYSTEM_ALERT_WINDOW"
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.FOREGROUND_SERVICE_MICROPHONE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
       ]
     },
     "web": {
@@ -46,6 +49,42 @@
         "expo-local-authentication",
         {
           "faceIDPermission": "Rahmat qulfini Face ID bilan ochish uchun ruxsat bering."
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": false,
+          "enableBackgroundRecording": false
+        }
+      ],
+      [
+        "react-native-android-widget",
+        {
+          "fonts": [
+            "./node_modules/@expo-google-fonts/dm-sans/500Medium/DMSans_500Medium.ttf",
+            "./node_modules/@expo-google-fonts/dm-sans/600SemiBold/DMSans_600SemiBold.ttf",
+            "./node_modules/@expo-google-fonts/onest/500Medium/Onest_500Medium.ttf",
+            "./node_modules/@expo-google-fonts/onest/600SemiBold/Onest_600SemiBold.ttf"
+          ],
+          "widgets": [
+            {
+              "name": "RahmatToday",
+              "label": "Rahmat — bugun",
+              "description": "Bugungi istig‘for va odatlar soni. Niyat va odat nomlari ko‘rinmaydi.",
+              "minWidth": "180dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 3,
+              "targetCellHeight": 2,
+              "maxResizeWidth": "420dp",
+              "maxResizeHeight": "240dp",
+              "resizeMode": "horizontal|vertical",
+              "previewImage": "./assets/widget-preview.png",
+              "updatePeriodMillis": 3600000
+            }
+          ]
         }
       ]
     ]

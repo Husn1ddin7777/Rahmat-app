@@ -30,4 +30,19 @@ These are pending checks, not completed test results. Run on both Android and iP
 23. On a phone with fingerprint or face unlock, enable it and confirm it opens the lock; cancel it and confirm the PIN still works. Confirm "PIN kodni unutdingizmi?" deletes everything and leaves the app unlocked and empty.
 24. Use the Android back button inside every new sheet; it must close the sheet without losing saved data.
 
+## Version 1.2 checks
+
+25. Install 1.2 over 1.1. Every intention, count, habit, evening entry, reminder setting and the lock must remain; the app opens in Latin.
+26. Switch Eslatmalar → Ilova sozlamalari → Yozuv to **Кирилл**. Check every tab and sheet: app text is Cyrillic, nothing shows boxes or a different-looking font, and intention names, notes, habits and Muhosaba answers stay exactly as typed. Send a test notification: it must be Cyrillic. Switch back to Lotin.
+27. Choose «Namozdan so‘ng», type times for two prayers only and save. With a 2-session routine both reminders arrive at those times — including one before the daytime window — titled "Bomdod namozidan so‘ng" etc. The counter shows the prayer names under the sessions. Try times out of prayer order: saving must be refused.
+28. On Bugun the Hijri date matches the calendar sheet. Use + and − in the sheet: the date moves by one day each step, never beyond ±2, and the setting survives a restart.
+29. Turn on «Nafl ro‘za kunlari». Temporarily set the phone's date to the day before a listed day (or correct the Hijri date so tomorrow is one) and confirm the evening reminder at 20:00 and the card on Bugun. Restore the date.
+30. Create a backup with a short phrase (refused), then with a good phrase. Save it to a folder (Downloads) and share it to Telegram «Saqlangan xabarlar». The file must not contain readable names or notes.
+31. Restore that backup on a second phone (or after «Barcha ma’lumotlarni o‘chirish»): a wrong phrase is refused; the right one shows the summary and restores everything. Reminders stay off until turned on; a lock set in the backup asks for its PIN on the next start.
+32. In the browser version create a backup with «Yuklab olish» and restore it in the Android app.
+33. Add the «Rahmat — bugun» widget to the home screen. Count istighfar and tick a habit: the widget updates after a moment. Tap it: the app (and its lock) opens. Turn on the whole-app lock: the widget shows only "Rahmat". After midnight it shows zeros even if the app was not opened.
+34. In Cyrillic, the widget is Cyrillic with proper letters.
+35. Upload a test recording to `assets/audio` (see AUDIO.md). In the new APK the «Tinglash» button appears only for that dhikr, plays with the phone on silent, stops when tapped again and plays again from the start. No microphone permission is requested at any point.
+36. Large system text and a screen reader on the new screens: the script switch, prayer rows, calendar stepper and backup steps are readable and labelled.
+
 For release: review the Uzbek religious content (see CONTENT-REVIEW.md), confirm bundle identifiers, supply final brand/store assets and privacy disclosure, and complete account/signing and distribution setup.

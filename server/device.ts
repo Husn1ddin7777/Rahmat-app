@@ -1,3 +1,5 @@
+import { istighfarPrompts } from '../src/domain/schedule';
+import { toScript } from '../src/domain/script';
 import { nextDelivery, zonedDay } from './calendar';
 import { sendPush } from './push';
 import type { DeviceContext, DeviceRecord, Env, StoredRegistration } from './types';
@@ -105,7 +107,7 @@ export class ReminderDevice {
       return json({
         status: input.settings.enabled ? 'enabled' : 'disabled',
         scheduled: input.settings.enabled
-          ? input.settings.sunnahPerDay + input.istighfarSlots + (input.settings.eveningTime ? 1 : 0) : 0,
+          ? input.settings.sunnahPerDay + istighfarPrompts(input.settings, input.istighfarSlots).length + (input.settings.eveningTime ? 1 : 0) : 0,
         nextAt: record.next?.dueAt ?? null,
       });
     }
@@ -128,7 +130,7 @@ export class ReminderDevice {
       const id = `test-${now}`;
       record.test = {
         notice: {
-          id, title: 'Rahmat', body: 'Eslatmalar tayyor. Qalbingizga bir lahza ajrating.',
+          id, title: toScript('Rahmat', record.settings.script), body: toScript('Eslatmalar tayyor. Qalbingizga bir lahza ajrating.', record.settings.script),
           screen: 'today', url: '/?screen=today', tag: `rahmat-${id}`,
         },
         dueAt, expiresAt: dueAt + 60_000, attemptAt: dueAt, attempts: 0,

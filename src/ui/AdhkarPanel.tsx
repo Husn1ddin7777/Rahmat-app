@@ -1,11 +1,14 @@
 import React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Check, ExternalLink, RotateCcw, Undo2 } from 'lucide-react-native';
 import Svg, { Circle } from 'react-native-svg';
 import adhkar from '../data/adhkar.json';
 import { getAdhkarCount, setAdhkarCount, type AppState } from '../domain/model';
 import { colors as c, fonts, s } from '../theme';
+import type { AudioId } from '../data/audio.generated';
+import { AdhkarAudio } from './AudioButton';
 import { ReviewNotice } from './controls';
+import { Text, useT } from './text';
 
 export type TasbihProgress = { step: number; count: number; done: boolean };
 export const TASBIH_START: TasbihProgress = { step: 0, count: 0, done: false };
@@ -16,7 +19,7 @@ const steps = tasbih.steps!;
 
 function Arabic({ children, size = 22 }: { children: string; size?: number }) {
   // No custom font: the bundled Latin fonts have no Arabic glyphs, so the system font draws it.
-  return <Text style={{ fontSize: size, lineHeight: size * 1.85, color: c.forest, textAlign: 'right', writingDirection: 'rtl' }}>{children}</Text>;
+  return <Text raw style={{ fontSize: size, lineHeight: size * 1.85, color: c.forest, textAlign: 'right', writingDirection: 'rtl' }}>{children}</Text>;
 }
 
 function SourceLink({ label, url, onOpen }: { label: string; url: string; onOpen: (url: string) => void }) {
@@ -28,6 +31,7 @@ export function AdhkarPanel({ data, day, update, openSource, onTap, progress, se
   data: AppState; day: string; update: (fn: (state: AppState) => AppState) => void; openSource: (url: string) => void;
   onTap: () => void; progress: TasbihProgress; setProgress: (next: TasbihProgress) => void;
 }) {
+  const t = useT();
   const step = steps[progress.step] ?? steps[0]!;
   const completions = getAdhkarCount(data, tasbih.id, day);
   const count = () => {
@@ -53,6 +57,7 @@ export function AdhkarPanel({ data, day, update, openSource, onTap, progress, se
     <View style={[s.card, { gap: 12 }]}>
       <View style={{ gap: 2 }}><Text style={s.heading}>{sayyid.title}</Text><Text style={s.tiny}>{sayyid.subtitle!.toUpperCase()}</Text></View>
       <Arabic>{sayyid.arabic!}</Arabic>
+      <View style={{ alignItems: 'flex-start' }}><AdhkarAudio id="sayyid-al-istighfar" label={sayyid.title} /></View>
       <Text style={[s.text, { color: c.muted }]}>{sayyid.transliteration}</Text>
       <Text style={s.text}>{sayyid.meaning}</Text>
       <Text style={s.muted}>{sayyid.note}</Text>
@@ -60,7 +65,7 @@ export function AdhkarPanel({ data, day, update, openSource, onTap, progress, se
       <View style={{ flexDirection: 'row', gap: 10 }}>
         {sayyid.parts!.map((part) => {
           const done = getAdhkarCount(data, part.id, day) > 0;
-          return <Pressable key={part.id} accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={`${part.label} o‘qidim`}
+          return <Pressable key={part.id} accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={t(`${part.label} o‘qidim`)}
             onPress={() => update((state) => setAdhkarCount(state, part.id, done ? 0 : 1, day))}
             style={({ pressed }) => [{ flex: 1, minHeight: 52, borderRadius: 16, borderWidth: 1, borderColor: done ? c.forest : c.line, backgroundColor: done ? c.forest : c.paper, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }, pressed && s.pressed]}>
             {done && <Check size={16} color={c.white} />}
@@ -73,15 +78,16 @@ export function AdhkarPanel({ data, day, update, openSource, onTap, progress, se
     <View style={[s.card, { gap: 14 }]}>
       <View style={{ gap: 2 }}><Text style={s.heading}>{tasbih.title}</Text><Text style={s.tiny}>{tasbih.subtitle!.toUpperCase()}</Text></View>
       <Text style={s.muted}>{tasbih.note}</Text>
-      <View style={{ flexDirection: 'row', gap: 6 }} accessibilityLabel={`${steps.length} bosqichdan ${progress.step + 1}-bosqich`}>
+      <View style={{ flexDirection: 'row', gap: 6 }} accessibilityLabel={t(`${steps.length} bosqichdan ${progress.step + 1}-bosqich`)}>
         {steps.map((item, index) => <View key={item.id} style={{ flex: 1, height: 5, borderRadius: 3, backgroundColor: index < progress.step || progress.done ? c.forest : index === progress.step ? c.gold : c.sand }} />)}
       </View>
       <View style={{ gap: 4 }}>
         <Arabic size={progress.step === steps.length - 1 ? 20 : 30}>{step.arabic}</Arabic>
         <Text style={[s.medium, { textAlign: 'center' }]}>{step.transliteration}</Text>
         <Text style={[s.muted, { textAlign: 'center' }]}>{step.meaning}</Text>
+        <View style={{ alignItems: 'center', marginTop: 4 }}><AdhkarAudio id={step.id as AudioId} label={step.transliteration} /></View>
       </View>
-      <Pressable accessibilityRole="button" accessibilityLabel={progress.done ? 'Tasbih yakunlandi' : `${step.transliteration}: ${progress.count} / ${step.count}. Sanash uchun bosing`}
+      <Pressable accessibilityRole="button" accessibilityLabel={t(progress.done ? 'Tasbih yakunlandi' : `${step.transliteration}: ${progress.count} / ${step.count}. Sanash uchun bosing`)}
         disabled={progress.done} onPress={count}
         style={({ pressed }) => [{ width: 220, height: 220, borderRadius: 110, alignSelf: 'center', alignItems: 'center', justifyContent: 'center', backgroundColor: c.sage }, pressed && { backgroundColor: '#DDE6D8' }]}>
         <Svg width={220} height={220} style={{ position: 'absolute' }} accessibilityElementsHidden>
@@ -93,9 +99,9 @@ export function AdhkarPanel({ data, day, update, openSource, onTap, progress, se
           : <><Text style={[s.counterNumber, { fontSize: 64, lineHeight: 72 }]}>{progress.count}</Text><Text style={s.muted}>/ {step.count}</Text><Text style={[s.tiny, { marginTop: 10, color: c.forest }]}>SANASH UCHUN BOSING</Text></>}
       </Pressable>
       <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 22 }}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Oxirgi sanoqni qaytarish" disabled={progress.done || (progress.step === 0 && progress.count === 0)} onPress={undo}
+        <Pressable accessibilityRole="button" accessibilityLabel={t('Oxirgi sanoqni qaytarish')} disabled={progress.done || (progress.step === 0 && progress.count === 0)} onPress={undo}
           style={[s.linkButton, (progress.done || (progress.step === 0 && progress.count === 0)) && { opacity: .35 }]}><Undo2 size={15} color={c.muted} /><Text style={s.muted}>Qaytarish</Text></Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Tasbihni qaytadan boshlash" onPress={() => setProgress({ ...TASBIH_START })} style={s.linkButton}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('Tasbihni qaytadan boshlash')} onPress={() => setProgress({ ...TASBIH_START })} style={s.linkButton}>
           <RotateCcw size={15} color={c.forest} /><Text style={[s.muted, { color: c.forest, fontFamily: fonts.medium }]}>{progress.done ? 'Yana boshlash' : 'Qaytadan'}</Text>
         </Pressable>
       </View>

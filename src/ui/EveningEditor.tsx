@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Text, TextInput, View } from 'react-native';
+import { View } from 'react-native';
 import muhosaba from '../data/muhosaba.json';
 import { MAX_EVENING_LENGTH, type EveningEntry } from '../domain/model';
 import { colors as c, s } from '../theme';
 import { Button, ReviewNotice } from './controls';
+import { Text, TextInput, useT } from './text';
 
 type Answers = { gratitude: string; improve: string; intention: string };
 
@@ -11,6 +12,7 @@ type Answers = { gratitude: string; improve: string; intention: string };
 export function EveningEditor({ initial, onSave, onDelete }: {
   initial?: EveningEntry; onSave: (answers: Answers) => void; onDelete?: () => void;
 }) {
+  const t = useT();
   const [answers, setAnswers] = useState<Answers>({
     gratitude: initial?.gratitude ?? '', improve: initial?.improve ?? '', intention: initial?.intention ?? '',
   });
@@ -22,8 +24,8 @@ export function EveningEditor({ initial, onSave, onDelete }: {
       const key = prompt.id as keyof Answers;
       return <View key={prompt.id} style={{ gap: 6 }}>
         <Text style={s.medium}>{prompt.label}</Text>
-        <TextInput accessibilityLabel={prompt.label} value={answers[key]} onChangeText={(text) => setAnswers({ ...answers, [key]: text })}
-          multiline maxLength={MAX_EVENING_LENGTH} placeholder={prompt.placeholder} placeholderTextColor={c.muted}
+        <TextInput accessibilityLabel={t(prompt.label)} value={answers[key]} onChangeText={(text) => setAnswers({ ...answers, [key]: text })}
+          multiline maxLength={MAX_EVENING_LENGTH} placeholder={t(prompt.placeholder)} placeholderTextColor={c.muted}
           style={[s.input, { minHeight: 76, textAlignVertical: 'top' }]} />
       </View>;
     })}
