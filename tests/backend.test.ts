@@ -7,6 +7,9 @@ import ts from 'typescript';
 import { buildPushPayload } from '@block65/webcrypto-web-push';
 import * as calendar from '../server/calendar';
 import * as validation from '../server/validation';
+import * as schedule from '../src/domain/schedule';
+import * as script from '../src/domain/script';
+import { fastingReminders } from '../src/domain/fasting';
 import worker from '../server/index';
 import type { BrowserSubscription, Delivery, DeviceRecord, DeviceStorage, Env, Registration } from '../server/types';
 
@@ -16,6 +19,8 @@ const settings = {
   enabled: true, dayStart: 7, dayEnd: 21, sunnahPerDay: 3 as const,
   times: ['08:00', '11:00', '14:00', '17:00', '20:00'],
   eveningTime: null as string | null,
+  script: 'latin' as script.Script, istighfarAnchor: 'clock' as schedule.IstighfarAnchor,
+  prayerTimes: [null, null, null, null, null] as Array<string | null>, fastingReminders: false, hijriOffset: 0,
 };
 const base64 = (bytes: ArrayBuffer | Uint8Array): string => Buffer.from(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)).toString('base64url');
 const bytes = (value: string): Uint8Array<ArrayBuffer> => Uint8Array.from(Buffer.from(value, 'base64url'));
@@ -38,7 +43,7 @@ const fixtures = (async () => {
 })();
 
 async function registration(overrides: Partial<Registration> = {}): Promise<Registration> {
-  return { subscription: (await fixtures).subscription, settings: { ...settings, times: [...settings.times] }, timeZone: 'Asia/Tashkent', istighfarSlots: 5, ...overrides };
+  return { subscription: (await fixtures).subscription, settings: { ...settings, times: [...settings.times], prayerTimes: [...settings.prayerTimes] }, timeZone: 'Asia/Tashkent', istighfarSlots: 5, ...overrides };
 }
 
 function compileModule<T>(file: string, dependencies: Record<string, unknown>, extras: Record<string, unknown> = {}): T {
@@ -71,7 +76,7 @@ function harness(start = now) {
     async transaction<T>(operation: (transaction: DeviceStorage) => Promise<T>) { return operation(storage as DeviceStorage); },
   } as DeviceStorage;
   const module = compileModule<typeof import('../server/device')>('../server/device.ts', {
-    './calendar': calendar, './validation': validation,
+    './calendar': calendar, './validation': validation, '../src/domain/schedule': schedule, '../src/domain/script': script,
     './push': { async sendPush(_subscription: BrowserSubscription, delivery: Delivery) {
       state.sent.push(structuredClone(delivery));
       return state.outcomes.shift() ?? 'sent';
@@ -150,6 +155,11 @@ test('backend: registration rejects private fields, malformed keys, timezone and
     { reflection: 'private text' }, { timeZone: 'Invalid/City' }, { hasActiveReflections: 1 }, { istighfarSlots: 6 },
     { istighfarSlots: 2.5 }, { istighfarSlots: undefined }, { settings: { ...settings, eveningTime: '25:00' } },
     { settings: { ...settings, enabled: 'true' } },
+    { settings: { ...settings, script: 'arabic' } }, { settings: { ...settings, istighfarAnchor: 'sunset' } },
+    { settings: { ...settings, prayerTimes: ['25:00', null, null, null, null] } }, { settings: { ...settings, prayerTimes: [null, null] } },
+    { settings: { ...settings, istighfarAnchor: 'prayer' } }, { settings: { ...settings, istighfarAnchor: 'prayer', prayerTimes: ['13:00', '05:30', null, null, null] } },
+    { settings: { ...settings, hijriOffset: 3 } }, { settings: { ...settings, hijriOffset: 0.5 } }, { settings: { ...settings, fastingReminders: 'yes' } },
+    { settings: { ...settings, prayerTimes: [1, null, null, null, null] } }, { settings: { ...settings, note: 'private' } },
     { subscription: { ...input.subscription, keys: { ...input.subscription.keys, auth: 'abc' } } },
     { subscription: { ...input.subscription, expirationTime: now - 1 } },
   ]) await assert.rejects(validation.validateRegistration({ ...input, ...change }, now), validation.ApiError);
@@ -359,6 +369,14 @@ test('backend: older installed web apps that send only the active flag keep five
   const parsed = await validation.validateRegistration(legacy, now);
   assert.equal(parsed.istighfarSlots, 5);
   assert.equal(parsed.settings.eveningTime, null);
+  // 1.1 web apps know nothing of scripts, prayers or fasting: they get the defaults.
+  for (const key of ['script', 'istighfarAnchor', 'prayerTimes', 'fastingReminders', 'hijriOffset'] as const) delete (legacy.settings as Record<string, unknown>)[key];
+  const older = await validation.validateRegistration(legacy, now);
+  assert.equal(older.settings.script, 'latin');
+  assert.equal(older.settings.istighfarAnchor, 'clock');
+  assert.deepEqual(older.settings.prayerTimes, [null, null, null, null, null]);
+  assert.equal(older.settings.fastingReminders, false);
+  assert.equal(older.settings.hijriOffset, 0);
   assert.equal((await validation.validateRegistration({ ...legacy, hasActiveReflections: false }, now)).istighfarSlots, 0);
   await assert.rejects(validation.validateRegistration({ ...legacy, istighfarSlots: 5 }, now), validation.ApiError, 'both forms at once are ambiguous');
 });
@@ -380,4 +398,51 @@ test('backend: routine slots and an evening prompt after the daytime window are 
   assert.equal(evening.expiresAt - evening.dueAt, 300_000, 'not cut off by the 21:00 daytime end');
   assert.equal(evening.notice.url, '/?screen=reflections');
   assert.equal(evening.notice.quoteId, undefined);
+});
+
+test('backend: prayer-linked prompts may fall outside the daytime window and keep their full five minutes', async () => {
+  const input = await registration({
+    istighfarSlots: 3,
+    settings: { ...settings, istighfarAnchor: 'prayer', prayerTimes: ['05:40', '13:20', null, '18:45', '21:40'] },
+  });
+  assert.deepEqual(await validation.validateRegistration(input, now), input);
+  const day = calendar.deliveriesForDay(input, '2026-09-27');
+  const prompts = day.filter((item) => item.notice.screen === 'istighfar');
+  assert.deepEqual(prompts.map((item) => item.notice.title), ['Bomdod namozidan so‘ng', 'Peshin namozidan so‘ng', 'Shom namozidan so‘ng']);
+  assert.equal(prompts[0]!.dueAt, Date.parse('2026-09-27T00:40:00Z'), '05:40 in Tashkent, before the 07:00 day start');
+  assert.ok(prompts.every((item) => item.expiresAt - item.dueAt === 300_000));
+  assert.ok(day.filter((item) => item.notice.screen === 'today').every((item) => {
+    const minute = (item.dueAt - Date.parse('2026-09-26T19:00:00Z')) / 60_000;
+    return minute >= 7 * 60 && minute < 21 * 60;
+  }), 'Sunnah reminders still respect the daytime window');
+  assert.ok(!JSON.stringify(day).includes('Xufton'), 'only the first three prayers with a time are used for three sessions');
+});
+
+test('backend: fasting reminders arrive the evening before, worded in the chosen script', async () => {
+  const [first] = fastingReminders('2026-09-27', 0, 400, 1);
+  assert.ok(first, 'a marked day exists within a year');
+  // Four sessions leave 20:00 free; with five, 20:00 is an istighfar time and the reminder moves to 20:05.
+  const input = await registration({ istighfarSlots: 4, settings: { ...settings, fastingReminders: true, script: 'cyrillic' } });
+  const eve = calendar.deliveriesForDay(input, first.eveDateKey);
+  const notice = eve.find((item) => item.notice.id.includes('rahmah.fasting'))!;
+  assert.ok(notice, 'the eve carries the reminder');
+  assert.equal(notice.notice.title, script.toCyrillic(first.day.reminderTitle!));
+  assert.match(notice.notice.body, /Саҳиҳ/);
+  assert.equal(notice.dueAt, calendar.wallTimeToEpoch(first.eveDateKey, schedule.FASTING_REMINDER_TIME, 'Asia/Tashkent'));
+  assert.equal(notice.expiresAt - notice.dueAt, 300_000);
+  assert.ok(eve.filter((item) => item.notice.screen === 'today' && !item.notice.id.includes('fasting')).every((item) => !!item.notice.quoteId), 'Sunnah notices still open their own text');
+  assert.ok(!calendar.deliveriesForDay(input, first.eventDateKey).some((item) => item.notice.id.includes(`fasting.${first.day.id}.${first.eventDateKey}`)));
+  const crowded = calendar.deliveriesForDay(await registration({ settings: { ...settings, fastingReminders: true } }), first.eveDateKey);
+  assert.equal(crowded.find((item) => item.notice.id.includes('rahmah.fasting'))!.dueAt, notice.dueAt + 5 * 60_000);
+  const latin = calendar.deliveriesForDay(await registration({ settings: { ...settings, fastingReminders: true } }), first.eveDateKey);
+  assert.ok(latin.some((item) => item.notice.title === first.day.reminderTitle));
+  assert.ok(!calendar.deliveriesForDay(await registration(), first.eveDateKey).some((item) => item.notice.id.includes('fasting')), 'off unless chosen');
+});
+
+test('backend: the test notice follows the saved script', async () => {
+  const h = harness();
+  await h.request('PUT', undefined, await registration({ settings: { ...settings, enabled: false, script: 'cyrillic' } }));
+  await h.request('POST', '/api/push/test');
+  assert.equal(h.state.data!.test!.notice.title, 'Раҳмат');
+  assert.match(h.state.data!.test!.notice.body, /^Эслатмалар тайёр/);
 });

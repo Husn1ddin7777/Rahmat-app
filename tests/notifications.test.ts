@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import { runInThisContext } from 'node:vm';
 import ts from 'typescript';
 import * as schedule from '../src/domain/schedule';
+import * as script from '../src/domain/script';
 import sunnah from '../src/data/sunnah.json';
 import type { ReminderSettings } from '../src/domain/schedule';
 
@@ -80,6 +81,7 @@ function nativeHarness(platform: 'android' | 'ios' = 'android') {
     if (id === 'react-native') return { Platform: { OS: platform } };
     if (id === 'expo-notifications') return native;
     if (id === '../domain/schedule') return schedule;
+    if (id === '../domain/script') return script;
     if (id === '../data/sunnah.json') return sunnah;
     throw new Error(`Unexpected service dependency: ${id}`);
   };

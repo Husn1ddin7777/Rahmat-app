@@ -1,7 +1,20 @@
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 
 export const colors = { paper: '#F7F5EF', white: '#FFFFFF', ink: '#203D34', forest: '#244D40', sage: '#E8EEE5', muted: '#667060', line: '#E3E5DB', gold: '#C9AC6A', sand: '#EEE8DC', danger: '#994F45' };
-export const fonts = { regular: 'DMSans_400Regular', medium: 'DMSans_500Medium', bold: 'DMSans_600SemiBold', serif: 'CormorantGaramond_500Medium', serifBold: 'CormorantGaramond_600SemiBold' };
+
+// DM Sans has no Cyrillic letters. Onest, a close geometric match, covers Uzbek Cyrillic
+// (ў, қ, ғ, ҳ). Cormorant Garamond already covers both scripts.
+const LATIN = ['DMSans_400Regular', 'DMSans_500Medium', 'DMSans_600SemiBold'] as const;
+const CYRILLIC = ['Onest_400Regular', 'Onest_500Medium', 'Onest_600SemiBold'] as const;
+// On the web a font stack also lets text the user typed in the other script borrow the other font.
+const stack = (first: string, second: string) => Platform.OS === 'web' ? `${first}, ${second}` : first;
+
+export const fonts = {
+  regular: stack(LATIN[0], CYRILLIC[0]), medium: stack(LATIN[1], CYRILLIC[1]), bold: stack(LATIN[2], CYRILLIC[2]),
+  serif: 'CormorantGaramond_500Medium', serifBold: 'CormorantGaramond_600SemiBold',
+};
+/** The same weights for Cyrillic text. */
+export const cyrillicFonts: Record<string, string> = Object.fromEntries(LATIN.map((name, index) => [stack(name, CYRILLIC[index]!), stack(CYRILLIC[index]!, name)]));
 export const s = StyleSheet.create({
   outer: { flex: 1, backgroundColor: '#E9ECE5', alignItems: 'center' },
   shell: { width: '100%', maxWidth: 480, flex: 1, backgroundColor: colors.paper, overflow: 'hidden' },

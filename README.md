@@ -4,7 +4,7 @@
 
 Live PWA: **https://rahmat.husniddinizzatullayev7777.workers.dev**. Deployed on 2026-09-28 with Web Push credentials configured. See [iPhone installation](./PWA-SETUP.md).
 
-## What it does (version 1.1)
+## What it does (version 1.2)
 
 - **Bugun:** three default habits plus up to seven personal habits (optional weekdays), istighfar progress, yesterday's intention for today, a Sunnah reminder with a "try it today" step, and a gentle weekly line. A 30-day calendar marks good days; there is no streak to break and missed days are never owed.
 - **Istig‘for — Niyatlarim:** each intention has its own routine, chosen by the user: 1–5 sessions a day of 10, 33 or 100. New intentions start at 1 × 33; intentions from version 1.0 keep 5 × 100. Changing a routine never deletes counts.
@@ -12,6 +12,15 @@ Live PWA: **https://rahmat.husniddinizzatullayev7777.workers.dev**. Deployed on 
 - **Muhosaba:** private intentions with optional notes, pause/reactivate/delete, and an optional evening reflection of three questions (gratitude, one thing to do better, one intention for tomorrow). No scores. Entries stay on the device and roll off after 30 days.
 - **Eslatmalar:** five editable times, a daytime window, 1–3 random Sunnah reminders a day from 47 sourced reminders, an optional evening Muhosaba reminder, a test notification, and the app lock.
 - **App lock (optional):** a 4–6 digit PIN, for the whole app or only Muhosaba (which also hides intention names elsewhere). On phones, fingerprint, face or the phone's own passcode can open it. A forgotten PIN can only be reset by deleting all data.
+
+New in 1.2:
+
+- **Uzbek Cyrillic (Lotin / Кирилл):** one switch in Eslatmalar → Ilova sozlamalari. The app's wording, sources, notifications, the Android widget and the fingerprint prompt follow it; text the user typed is never converted. A built-in converter handles o‘/g‘, sh/ch, ё/ю/я/е, э, ъ and month names; Onest replaces DM Sans for Cyrillic (DM Sans has no Cyrillic letters).
+- **After-prayer reminders:** istighfar reminders can follow the five prayers instead of clock times. The user types each prayer time (no location is used); session N of a routine follows the N-th prayer with a time, and notifications read "Peshin namozidan so‘ng". Sourced to Sahih Muslim 591.
+- **Hijri date and voluntary fasting days:** the Hijri date on Bugun (arithmetic calendar, identical to the Unicode `islamic-civil` calendar, correctable by ±2 days to match the local announcement), a calendar sheet with upcoming sourced fasting days, and an optional reminder the evening before Arafa, Tosuo, Ashuro and the Shavvol fasts.
+- **Encrypted backup and transfer:** all data in one file, sealed with XChaCha20-Poly1305 under a key derived from the user's secret phrase by scrypt (N = 8192). Save it to a folder or share it (Telegram, Drive); restore it on another phone, or move browser data into the Android app. Reminders start switched off after a restore.
+- **Android home-screen widget:** today's istighfar and habit numbers only, never names; it shows nothing but "Rahmat" while the whole-app lock is on, and starts from zero at midnight.
+- **Adhkar audio:** a listen button next to each dhikr, shown only when a recording exists. Recordings are the owner's own (see [AUDIO.md](./AUDIO.md)); none are bundled yet.
 
 Android APK: **https://github.com/Husn1ddin7777/Rahmat-app/releases/latest/download/Rahmat.apk** (built automatically from `main`; see [Android APK](#android-apk)).
 
@@ -65,25 +74,33 @@ No paid build was submitted. Native signing/store release and the PWA production
 
 ## Reminders and privacy
 
-Istighfar reminders follow the largest active routine: an intention of 2 sessions a day gets reminders at the first two chosen times. The optional evening Muhosaba reminder uses generic wording only, never the user's answers.
+Istighfar reminders follow the largest active routine: an intention of 2 sessions a day gets reminders at the first two chosen times (or after the first two prayers that have a time). The optional evening Muhosaba reminder and the fasting-eve reminders use generic wording only, never the user's answers.
 
 The native Expo version uses **local scheduled phone notifications**. The PWA uses a Cloudflare Worker with one scheduled Durable Object per anonymous device to send standard Web Push. There is no analytics feature yet.
 
 The five daily istighfar notifications are combined reminders for all active entries; the counters remain separate per entry. Notifications never contain private entry names, notes, or entry counts. When there are no active entries, only Sunnah reminders are scheduled.
 
-Native Sunnah reminders use a weekday-specific randomized schedule, restricted to the chosen daytime interval. Five daily notifications plus at most 21 weekly notifications keep the total at 26. Reopening the app on a later day refreshes the selection; otherwise the existing weekday timing and content repeats each week. Device Focus modes, notification permissions, timezone changes, and battery policies can affect delivery. Reopen after changing timezone to refresh the plan. Notification timestamps are scheduled intentions, not guarantees of exact delivery. The PWA server generates each day’s Sunnah plan even while the app is closed; it sends 1–3 Sunnah reminders plus five shared istighfar prompts when entries are active.
+Native Sunnah reminders use a weekday-specific randomized schedule, restricted to the chosen daytime interval. Five daily istighfar prompts, one evening prompt, at most 21 weekly Sunnah reminders and at most four dated fasting reminders keep the total at 31. Reopening the app on a later day refreshes the selection; otherwise the existing weekday timing and content repeats each week. Device Focus modes, notification permissions, timezone changes, and battery policies can affect delivery. Reopen after changing timezone to refresh the plan. Notification timestamps are scheduled intentions, not guarantees of exact delivery. The PWA server generates each day’s Sunnah plan even while the app is closed; it sends 1–3 Sunnah reminders plus five shared istighfar prompts when entries are active.
 
-On native devices, the state is stored in encrypted Expo SecureStore chunks with serialized writes and an atomic manifest. No reflection content is sent to a server. There is no in-app biometric lock; protect the device with its normal lock. Changes save after a short debounce and are flushed when the app backgrounds. OS interruption can still affect a just-entered change. The app reports save failures instead of silently discarding previously saved records. iOS Keychain data may survive uninstall; use the in-app delete-all action to erase records.
+On native devices, the state is stored in encrypted Expo SecureStore chunks with serialized writes and an atomic manifest. No reflection content is sent to a server. The home-screen widget reads a separate snapshot of two pairs of numbers. Backups leave the phone only when the user saves or shares the encrypted file; without the secret phrase it cannot be opened, and there is no way to recover a forgotten phrase. Changes save after a short debounce and are flushed when the app backgrounds. OS interruption can still affect a just-entered change. The app reports save failures instead of silently discarding previously saved records. iOS Keychain data may survive uninstall; use the in-app delete-all action to erase records.
 
 ## Religious content
 
-**Status: sources checked on 2026-10-21; scholar review pending.** Every reminder links to Sahih al-Bukhari or Sahih Muslim on sunnah.com and is labelled as a paraphrase. [CONTENT-REVIEW.md](./CONTENT-REVIEW.md) lists every religious text in the app as a checklist for the reviewer (`npm run content:review` regenerates it). After approval, set `scholarReview.status` to `approved` in `src/data/sunnah.json`, `adhkar.json` and `muhosaba.json`; the in-app "awaiting review" notices then disappear.
+**Status: sources checked on 2026-10-21 and 2026-10-22; scholar review pending.** Every reminder links to Sahih al-Bukhari or Sahih Muslim on sunnah.com and is labelled as a paraphrase. [CONTENT-REVIEW.md](./CONTENT-REVIEW.md) lists every religious text in the app as a checklist for the reviewer, with eleven open questions and Cyrillic samples (`npm run content:review` regenerates it). After approval, set `scholarReview.status` to `approved` in `src/data/sunnah.json`, `adhkar.json`, `muhosaba.json`, `fasting.json` and `prayer.json`; the in-app "awaiting review" notices then disappear.
+
+The fasting days (`src/data/fasting.json`) were checked against the hadith text: Arafa and Ashuro (Sahih Muslim 1162a), Monday (1162e), Tosuo (1134b), six days of Shavvol (1164a), Muharram (1163a), three days a month on any days (1160) and Sha’bon (Sahih al-Bukhari 1969). The Hijri date is an estimate; the calendar tells users to follow the announcement of the Muslim Board of Uzbekistan. The 13th–15th ("white days") are not shown, because their source is outside Bukhari and Muslim; that is an open question for the reviewer.
 
 The 47 Uzbek reminders are paraphrases, labelled as such and linked to their hadith references in `src/data/sunnah.json`. Each routine is the user's own choice; the app does not describe it as a religious prescription, and counts are never presented as forgiveness, reward or rank. [Sahih Muslim 2702a](https://sunnah.com/muslim:2702a) supports the separately described practice of seeking forgiveness 100 times daily. The app gives no rulings.
 
 Have the Uzbek wording, transliteration and religious framing reviewed before public release. The library is a reviewed-source set, not a comprehensive hadith collection.
 
 ## Verification completed
+
+Version 1.2 (2026-10-22):
+
+- 128 automated tests pass (plus 11 PWA and push-runtime tests), adding: the Cyrillic converter on every bundled religious text (no stray Latin left), the Hijri calendar against ICU `islamic-civil` day by day for 1990–2080, fasting days and their reminder eves under every correction, prayer-linked prompts on phone and server (outside the daytime window, Sunnah reminders kept apart), Cyrillic notifications and the server's test notice, backups (exact round trip, wrong phrase, a changed byte or header, oversized or memory-heavy files), the widget snapshot (numbers only, hidden under the whole-app lock, zero on a new day), and compatibility with 1.1 web apps and stored 1.1 data.
+- A browser run-through of the exported web app passed: the Hijri line and calendar with ±1 correction, prayer-linked times and session labels, the script switch on every tab (typed intentions, notes and habits stayed as typed), playing and finishing a test recording, creating an encrypted backup, deleting all data, refusing a wrong phrase, and restoring everything (back in Cyrillic, reminders off).
+- Not yet checked on a physical phone: the home-screen widget, saving a backup to a folder and the share sheet, dated fasting notifications, and Onest in the widget.
 
 Version 1.1 (2026-10-21):
 

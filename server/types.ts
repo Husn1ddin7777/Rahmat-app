@@ -1,4 +1,4 @@
-import type { ReminderScreen, ReminderSettings } from '../src/domain/schedule';
+import type { NormalizedReminderSettings, ReminderScreen, ReminderSettings } from '../src/domain/schedule';
 
 export type BrowserSubscription = {
   endpoint: string;
@@ -9,14 +9,18 @@ export type BrowserSubscription = {
 /** This is the entire server-side preference record. Reflections never enter it. */
 export type Registration = {
   subscription: BrowserSubscription;
-  settings: ReminderSettings;
+  settings: NormalizedReminderSettings;
   /** 0–5 istighfar prompts a day: a number only, never an entry or its routine. */
   istighfarSlots: number;
   timeZone: string;
 };
 
-/** Records stored before routines existed carry only the old active/inactive flag. */
-export type StoredRegistration = Omit<Registration, 'istighfarSlots'> & {
+/**
+ * Records stored before routines existed carry only the old active/inactive flag,
+ * and records from before 1.2 lack the newer settings (script, prayers, fasting).
+ */
+export type StoredRegistration = Omit<Registration, 'istighfarSlots' | 'settings'> & {
+  settings: ReminderSettings;
   istighfarSlots?: number;
   hasActiveReflections?: boolean;
 };

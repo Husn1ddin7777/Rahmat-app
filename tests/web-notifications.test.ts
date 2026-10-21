@@ -140,7 +140,7 @@ test('web registration sends public subscription/settings only and identical pas
   assert.equal((await api.syncReminders(settings, 5, true)).scheduled, 7);
   const put = state.calls.find((call) => call.method === 'PUT')!;
   assert.deepEqual(Object.keys(put.body!).sort(), ['istighfarSlots', 'settings', 'subscription', 'timeZone']);
-  assert.deepEqual(Object.keys(put.body!.settings as object).sort(), ['dayEnd', 'dayStart', 'enabled', 'eveningTime', 'sunnahPerDay', 'times']);
+  assert.deepEqual(Object.keys(put.body!.settings as object).sort(), ['dayEnd', 'dayStart', 'enabled', 'eveningTime', 'fastingReminders', 'hijriOffset', 'istighfarAnchor', 'prayerTimes', 'script', 'sunnahPerDay', 'times']);
   assert.match(put.headers.Authorization!, /^Bearer [a-f0-9]{64}$/);
   assert.equal(/label|note|counts|createdAt|reflections/.test(JSON.stringify(put.body)), false);
   const before = state.calls.length;
@@ -289,9 +289,9 @@ test('passive stale OFF or old times cannot cancel or overwrite a newer explicit
   a.state.permission = 'granted'; a.state.subscription = true;
   assert.equal((await a.api.syncReminders({ ...settings, enabled: false }, 0)).status, 'enabled');
   assert.equal(a.state.unsubscribeCalls, 0);
-  assert.deepEqual(a.state.calls.at(-1)?.body?.settings, newer);
+  assert.deepEqual(a.state.calls.at(-1)?.body?.settings, schedule.normalizeReminderSettings(newer));
   await a.api.syncReminders(settings, 5);
-  assert.deepEqual(a.state.calls.at(-1)?.body?.settings, newer);
+  assert.deepEqual(a.state.calls.at(-1)?.body?.settings, schedule.normalizeReminderSettings(newer));
 });
 
 test('a choice saved by an older Rahmat window is read as five prompts, and new choices stay readable by it', async () => {

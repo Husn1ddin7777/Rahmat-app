@@ -1,8 +1,9 @@
 import React from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 import { Check } from 'lucide-react-native';
 import type { ActivityDay } from '../domain/model';
 import { colors as c, fonts, s } from '../theme';
+import { Text, useT } from './text';
 
 const HEADERS = ['Du', 'Se', 'Ch', 'Pa', 'Ju', 'Sh', 'Ya'];
 const MONTHS = ['yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun', 'iyul', 'avgust', 'sentabr', 'oktabr', 'noyabr', 'dekabr'];
@@ -14,6 +15,7 @@ function parts(dateKey: string) {
 
 /** A gentle 30-day calendar: good days are filled, other days stay plain — never red, never owed. */
 export function ConsistencyView({ days }: { days: ActivityDay[] }) {
+  const t = useT();
   if (!days.length) return null;
   const lead = parts(days[0]!.dateKey).column;
   const cells: Array<ActivityDay | null> = [...Array<null>(lead).fill(null), ...days];
@@ -27,7 +29,7 @@ export function ConsistencyView({ days }: { days: ActivityDay[] }) {
     <View style={{ flexDirection: 'row' }}>{HEADERS.map((name) => <Text key={name} style={[s.tiny, { flex: 1, textAlign: 'center' }]}>{name}</Text>)}</View>
     {rows.map((row, index) => <View key={index} style={{ flexDirection: 'row' }}>
       {row.map((cell, column) => <View key={column} style={{ flex: 1, alignItems: 'center', paddingVertical: 4 }}>
-        {cell && <View accessibilityLabel={`${parts(cell.dateKey).day}-${MONTHS[parts(cell.dateKey).month]}${cell.active ? ', yaxshi amal qayd etilgan' : ''}${cell.today ? ', bugun' : ''}`}
+        {cell && <View accessibilityLabel={t(`${parts(cell.dateKey).day}-${MONTHS[parts(cell.dateKey).month]}${cell.active ? ', yaxshi amal qayd etilgan' : ''}${cell.today ? ', bugun' : ''}`)}
           style={[{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: c.line },
             cell.active && s.checkOn, cell.today && !cell.active && { borderColor: c.forest, borderWidth: 1.5 }]}>
           {cell.active

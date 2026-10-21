@@ -67,15 +67,16 @@ export function deliveriesForDay(registration: StoredRegistration, day: string):
   const weekday = calendar.getUTCDay() + 1;
   const plan = buildReminderPlan(registration.settings, istighfarSlotsOf(registration),
     sunnah.reminders as SunnahReminder[], seed);
-  return plan.filter((item) => item.trigger.type === 'daily' || item.trigger.weekday === weekday)
+  return plan.filter((item) => item.trigger.type === 'daily'
+    || (item.trigger.type === 'weekly' && item.trigger.weekday === weekday)
+    || (item.trigger.type === 'date' && item.trigger.dateKey === day))
     .flatMap((item): Delivery[] => {
       const dueAt = wallTimeToEpoch(day, item.trigger.hour * 60 + item.trigger.minute, registration.timeZone);
       if (dueAt === null) return [];
-      // The evening Muhosaba prompt may fall after the daytime window; it keeps its own 5 minutes.
-      const end = item.screen === 'reflections' ? null : wallTimeToEpoch(day, registration.settings.dayEnd * 60, registration.timeZone);
+      // Evening, prayer and fasting prompts may fall outside the daytime window; they keep their own 5 minutes.
+      const end = item.outsideWindow ? null : wallTimeToEpoch(day, registration.settings.dayEnd * 60, registration.timeZone);
       const id = `${day}-${item.identifier}`;
-      const quoteId = item.screen === 'today' ? sunnah.reminders.find((content) =>
-        content.title === item.title && item.body.startsWith(content.text))?.id : undefined;
+      const quoteId = item.screen === 'today' ? item.contentId : undefined;
       return [{
         notice: {
           id, title: item.title, body: item.body, screen: item.screen,

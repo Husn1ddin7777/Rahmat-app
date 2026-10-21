@@ -1,8 +1,9 @@
 import React from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 import { DAILY_SESSIONS, SESSION_TARGETS } from '../domain/model';
 import { s } from '../theme';
 import { Choice } from './controls';
+import { Text } from './text';
 
 /** The user's own daily routine for one intention: how many sessions and how many in each. */
 export function GoalPicker({ sessions, target, onChange, disabled = false }: {

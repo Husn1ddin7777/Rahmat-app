@@ -1,4 +1,4 @@
-import { normalizeReminderSettings, type ReminderSettings } from './schedule';
+import { EMPTY_PRAYER_TIMES, normalizeReminderSettings, type NormalizedReminderSettings, type ReminderSettings } from './schedule';
 
 /** A private intention. Its routine is the user's own choice, not a prescribed schedule. */
 export type Reflection = {
@@ -47,7 +47,7 @@ export type AppState = {
   reflections: Reflection[];
   habits: CustomHabit[];
   days: Record<string, DayProgress>;
-  settings: ReminderSettings;
+  settings: NormalizedReminderSettings;
   lock: LockSettings;
 };
 
@@ -93,6 +93,11 @@ export function createInitialState(): AppState {
       sunnahPerDay: 2,
       times: ['08:00', '11:00', '14:00', '17:00', '20:00'],
       eveningTime: null,
+      script: 'latin',
+      istighfarAnchor: 'clock',
+      prayerTimes: [...EMPTY_PRAYER_TIMES],
+      fastingReminders: false,
+      hijriOffset: 0,
     },
     lock: { mode: 'off', pin: null, biometrics: false },
   };
@@ -264,18 +269,16 @@ export function validateState(input: unknown): AppState {
 
   demand(record(value.settings) && typeof value.settings.enabled === 'boolean'
     && Array.isArray(value.settings.times) && value.settings.times.every((time: unknown) => typeof time === 'string'), 'eslatmalar');
-  let settings: ReminderSettings;
+  let settings: NormalizedReminderSettings;
   try {
+    // Fields added in later versions are optional here and receive their defaults.
     settings = normalizeReminderSettings(value.settings as ReminderSettings);
   } catch {
     throw new StateValidationError('eslatma vaqtlari');
   }
   return {
     version: 2, reflections, habits, days, lock: validateLock(value.lock),
-    settings: {
-      enabled: settings.enabled, dayStart: settings.dayStart, dayEnd: settings.dayEnd,
-      sunnahPerDay: settings.sunnahPerDay, times: [...settings.times], eveningTime: settings.eveningTime ?? null,
-    },
+    settings: { ...settings, times: [...settings.times], prayerTimes: [...settings.prayerTimes] },
   };
 }
 

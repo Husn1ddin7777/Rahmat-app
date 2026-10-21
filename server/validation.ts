@@ -1,4 +1,4 @@
-import { normalizeIstighfarSlots, normalizeReminderSettings, type ReminderSettings } from '../src/domain/schedule';
+import { normalizeIstighfarSlots, normalizeReminderSettings, type NormalizedReminderSettings, type ReminderSettings } from '../src/domain/schedule';
 import type { BrowserSubscription, Env, Registration } from './types';
 
 export class ApiError extends Error {
@@ -79,10 +79,14 @@ export async function validateRegistration(input: unknown, now = Date.now()): Pr
     expirationTime: expirationTime as number | null,
     keys: { p256dh: rawKeys.p256dh as string, auth: rawKeys.auth as string },
   };
-  const rawSettings = object(value.settings, ['enabled', 'dayStart', 'dayEnd', 'sunnahPerDay', 'times', 'eveningTime']);
+  // Fields added after 1.1 are optional, so web apps installed earlier keep working.
+  const rawSettings = object(value.settings, ['enabled', 'dayStart', 'dayEnd', 'sunnahPerDay', 'times', 'eveningTime',
+    'script', 'istighfarAnchor', 'prayerTimes', 'fastingReminders', 'hijriOffset']);
   if (typeof rawSettings.enabled !== 'boolean' || !Array.isArray(rawSettings.times) ||
       !rawSettings.times.every((time) => typeof time === 'string') ||
-      (rawSettings.eveningTime !== undefined && rawSettings.eveningTime !== null && typeof rawSettings.eveningTime !== 'string')) {
+      (rawSettings.eveningTime !== undefined && rawSettings.eveningTime !== null && typeof rawSettings.eveningTime !== 'string') ||
+      (rawSettings.prayerTimes !== undefined && (!Array.isArray(rawSettings.prayerTimes) ||
+        !rawSettings.prayerTimes.every((time) => time === null || typeof time === 'string')))) {
     throw new ApiError(400, 'Eslatma sozlamalari noto‘g‘ri.');
   }
   let istighfarSlots: number;
@@ -90,9 +94,9 @@ export async function validateRegistration(input: unknown, now = Date.now()): Pr
     if ((value.istighfarSlots === undefined) === (value.hasActiveReflections === undefined)) throw new Error();
     istighfarSlots = normalizeIstighfarSlots(value.istighfarSlots ?? value.hasActiveReflections);
   } catch { throw new ApiError(400, 'Eslatma sozlamalari noto‘g‘ri.'); }
-  let settings: ReminderSettings;
+  let settings: NormalizedReminderSettings;
   try { settings = normalizeReminderSettings(rawSettings as ReminderSettings); }
-  catch { throw new ApiError(400, 'Besh alohida vaqtni kunduzgi oraliqda belgilang.'); }
+  catch { throw new ApiError(400, 'Eslatma vaqtlarini tekshiring: besh alohida vaqt kunduzgi oraliqda, namoz vaqtlari esa tartib bilan.'); }
   if (typeof value.timeZone !== 'string' || value.timeZone.length > 100) {
     throw new ApiError(400, 'Vaqt mintaqasi noto‘g‘ri.');
   }

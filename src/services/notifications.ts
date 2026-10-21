@@ -4,11 +4,13 @@ import sunnah from '../data/sunnah.json';
 import {
   buildReminderPlan,
   reminderPlanKey,
+  type PlannedReminder,
   type ReminderScreen,
   type ReminderSettings,
   type ReminderResult,
   type SunnahReminder,
 } from '../domain/schedule';
+import { toScript, type Script } from '../domain/script';
 
 export type { ReminderScreen, ReminderSettings, ReminderResult } from '../domain/schedule';
 
@@ -33,11 +35,14 @@ function serialize<T>(work: () => Promise<T>): Promise<T> {
   return result;
 }
 
+// The channel name follows the chosen script; Android renames an existing channel in place.
+let channelScript: Script = 'latin';
+
 async function configureChannel(): Promise<void> {
   if (Platform.OS !== 'android') return;
   await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
-    name: 'Kundalik eslatmalar',
-    description: 'Istig‘for va sunnat uchun muloyim eslatmalar',
+    name: toScript('Kundalik eslatmalar', channelScript),
+    description: toScript('Istig‘for va sunnat uchun muloyim eslatmalar', channelScript),
     importance: Notifications.AndroidImportance.DEFAULT,
     sound: 'default',
     enableVibrate: false,
@@ -77,14 +82,17 @@ export function syncReminders(
   requestPermission = false,
 ): Promise<ReminderResult> {
   // Capture the caller's choice before awaiting another queued operation.
-  const snapshot = { ...settings, times: [...settings.times] };
+  const snapshot = { ...settings, times: [...settings.times], ...(settings.prayerTimes ? { prayerTimes: [...settings.prayerTimes] } : {}) };
   return serialize(async () => {
+    channelScript = snapshot.script ?? 'latin';
     if (!snapshot.enabled) {
       await Notifications.cancelAllScheduledNotificationsAsync();
       return { status: 'disabled', scheduled: 0 };
     }
     const now = new Date();
-    const plan = buildReminderPlan(snapshot, istighfarSlots, sunnah.reminders as SunnahReminder[], now);
+    // A dated reminder whose moment has passed today is simply left out.
+    const plan = buildReminderPlan(snapshot, istighfarSlots, sunnah.reminders as SunnahReminder[], now)
+      .filter((item) => item.trigger.type !== 'date' || dateOf(item.trigger).getTime() > now.getTime());
     if (!await ensurePermission(requestPermission)) {
       await Notifications.cancelAllScheduledNotificationsAsync();
       return { status: 'denied', scheduled: 0 };
@@ -108,11 +116,15 @@ export function syncReminders(
             minute: reminder.trigger.minute,
             channelId: CHANNEL_ID,
           }
-          : {
+          : reminder.trigger.type === 'weekly' ? {
             type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
             weekday: reminder.trigger.weekday,
             hour: reminder.trigger.hour,
             minute: reminder.trigger.minute,
+            channelId: CHANNEL_ID,
+          } : {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: dateOf(reminder.trigger),
             channelId: CHANNEL_ID,
           };
         await Notifications.scheduleNotificationAsync({
@@ -135,15 +147,22 @@ export function syncReminders(
   });
 }
 
+/** Local wall-clock time of a dated reminder. */
+function dateOf(trigger: Extract<PlannedReminder['trigger'], { type: 'date' }>): Date {
+  const [year, month, day] = trigger.dateKey.split('-').map(Number) as [number, number, number];
+  return new Date(year, month - 1, day, trigger.hour, trigger.minute);
+}
+
 /** Called by an explicit user action; the permission prompt is allowed here. */
-export function sendTestNotification(): Promise<ReminderResult> {
+export function sendTestNotification(script: Script = 'latin'): Promise<ReminderResult> {
   return serialize(async () => {
+    channelScript = script;
     if (!await ensurePermission(true)) return { status: 'denied', scheduled: 0 };
     await Notifications.scheduleNotificationAsync({
       identifier: 'rahmah.test',
       content: {
-        title: 'Eslatmalar tayyor',
-        body: 'Bu sinov eslatmasi. Kichik, davomli qadamlar bilan boshlaymiz.',
+        title: toScript('Eslatmalar tayyor', script),
+        body: toScript('Bu sinov eslatmasi. Kichik, davomli qadamlar bilan boshlaymiz.', script),
         sound: 'default',
         data: { app: APP_MARKER, screen: 'today' },
       },

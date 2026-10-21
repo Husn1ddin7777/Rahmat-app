@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState as NativeAppState, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, AppState as NativeAppState, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, Switch, View } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
@@ -8,12 +8,17 @@ import { DMSans_500Medium } from '@expo-google-fonts/dm-sans/500Medium';
 import { DMSans_600SemiBold } from '@expo-google-fonts/dm-sans/600SemiBold';
 import { CormorantGaramond_500Medium } from '@expo-google-fonts/cormorant-garamond/500Medium';
 import { CormorantGaramond_600SemiBold } from '@expo-google-fonts/cormorant-garamond/600SemiBold';
-import { Archive, ArrowRight, Bell, BellRing, BookHeart, CalendarDays, Check, ChevronDown, ChevronRight, ChevronUp, CircleDot, Coffee, ExternalLink, Heart, Leaf, LockKeyhole, Minus, Moon, Pencil, Plus, RefreshCw, ShieldCheck, Sparkles, Sprout, Sun, Trash2, Undo2, X } from 'lucide-react-native';
+import { Onest_400Regular } from '@expo-google-fonts/onest/400Regular';
+import { Onest_500Medium } from '@expo-google-fonts/onest/500Medium';
+import { Onest_600SemiBold } from '@expo-google-fonts/onest/600SemiBold';
+import { Archive, ArrowRight, Bell, BellRing, BookHeart, CalendarDays, CalendarHeart, Check, ChevronDown, ChevronRight, ChevronUp, CircleDot, Coffee, DatabaseBackup, Download, ExternalLink, Heart, Languages, Leaf, LockKeyhole, Minus, Moon, MoonStar, Pencil, Plus, RefreshCw, Share2, ShieldCheck, Sparkles, Sprout, Sun, Trash2, Undo2, Upload, X } from 'lucide-react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import content from './src/data/sunnah.json';
 import adhkar from './src/data/adhkar.json';
 import muhosaba from './src/data/muhosaba.json';
+import fasting from './src/data/fasting.json';
+import prayer from './src/data/prayer.json';
 import {
   activityCalendar, addCustomHabit, consistencySummary, createInitialState, createReflection, customHabitsFor, dayHasActivity,
   deleteEvening, eveningHistory, getDayTarget, getDayTotal, getEvening, getReflectionTotal, getSessionCounts, incrementCount,
@@ -21,9 +26,15 @@ import {
   STARTER_ROUTINE, toggleHabit, type AppState, type LockMode,
 } from './src/domain/model';
 import { createPinRecord, lockWith } from './src/domain/lock';
-import { fitsTimeCategory } from './src/domain/schedule';
+import { backupFileName, createBackup, openBackup, passphraseProblem, readBackupEnvelope, summarizeBackup, type BackupSummary } from './src/domain/backup';
+import { FASTING_DAYS, nearFastingDays, upcomingFastingDays } from './src/domain/fasting';
+import { formatHijri, HIJRI_OFFSET_LIMIT, hijriForDateKey } from './src/domain/hijri';
+import { fitsTimeCategory, normalizeReminderSettings, PRAYER_NAMES, type NormalizedReminderSettings } from './src/domain/schedule';
+import { toScript, type Script } from './src/domain/script';
 import { clearState, loadState, saveState } from './src/services/storage';
-import { ReminderResult, ReminderSettings, getTestNotificationStatus, sendTestNotification, subscribeToReminderOpen, syncReminders } from './src/services/notifications';
+import { ReminderResult, getTestNotificationStatus, sendTestNotification, subscribeToReminderOpen, syncReminders } from './src/services/notifications';
+import { pickBackupText, saveBackup, SAVE_TARGETS, secureRandomBytes, type SaveTarget } from './src/services/backupFile';
+import { clearWidget, updateWidget } from './src/services/widget';
 import { biometricsAvailable } from './src/services/biometrics';
 import { colors as c, fonts, s } from './src/theme';
 import { getPwaState, preparePwa } from './src/services/pwa';
@@ -35,17 +46,28 @@ import { AdhkarPanel, TASBIH_START, type TasbihProgress } from './src/ui/AdhkarP
 import { ConsistencyView } from './src/ui/ConsistencyView';
 import { HabitEditor, weekdaySummary } from './src/ui/HabitEditor';
 import { EveningEditor } from './src/ui/EveningEditor';
+import { AdhkarAudio } from './src/ui/AudioButton';
+import { ScriptProvider, Text, TextInput } from './src/ui/text';
 
 type Tab = 'today' | 'istighfar' | 'reflections' | 'reminders';
-type Sheet = 'add' | 'about' | 'clear' | 'goal' | 'habits' | 'consistency' | 'evening' | 'lock';
+type Sheet = 'add' | 'about' | 'clear' | 'goal' | 'habits' | 'consistency' | 'evening' | 'lock' | 'calendar' | 'backup';
+type BackupStep =
+  | { kind: 'verify' } | { kind: 'menu' } | { kind: 'export' }
+  | { kind: 'ready'; name: string; text: string; saved: boolean }
+  | { kind: 'unlock'; text: string; createdAt: string }
+  | { kind: 'confirm'; state: AppState; summary: BackupSummary };
 const tabs = [{ key: 'today', label: 'Bugun', icon: Sun }, { key: 'istighfar', label: 'Istig‘for', icon: CircleDot }, { key: 'reflections', label: 'Muhosaba', icon: BookHeart }, { key: 'reminders', label: 'Eslatmalar', icon: Bell }] as const;
-const defaultHabits = [{ id: 'meal', title: 'Bismillah bilan boshlash', subtitle: 'Taom oldidan bir go‘zal odat', icon: Coffee }, { id: 'kindness', title: 'Yaxshi so‘z aytish', subtitle: 'Yoki sukutni tanlash', icon: Heart }, { id: 'family', title: 'Oilaga yordam berish', subtitle: 'Yaxshilik yaqinlardan boshlanadi', icon: Sprout }];
+const defaultHabits = [{ id: 'meal', title: 'Bismillah bilan boshlash', subtitle: 'Taom oldidan bir go‘zal odat', icon: Coffee, custom: false }, { id: 'kindness', title: 'Yaxshi so‘z aytish', subtitle: 'Yoki sukutni tanlash', icon: Heart, custom: false }, { id: 'family', title: 'Oilaga yordam berish', subtitle: 'Yaxshilik yaqinlardan boshlanadi', icon: Sprout, custom: false }];
 const slotNames = ['Tong', 'Choshgoh', 'Peshindan so‘ng', 'Kunning ikkinchi yarmi', 'Oqshom'];
 const weekNames = ['Ya', 'Du', 'Se', 'Ch', 'Pa', 'Ju', 'Sh'];
 const months = ['yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun', 'iyul', 'avgust', 'sentabr', 'oktabr', 'noyabr', 'dekabr'];
 const weekdays = ['yakshanba', 'dushanba', 'seshanba', 'chorshanba', 'payshanba', 'juma', 'shanba'];
 const categoryNames: Record<string, string> = { morning: 'Tong', daytime: 'Kun davomida', mealtime: 'Taom paytida', evening: 'Kechqurun', anytime: 'Istalgan payt' };
 const lockModes: readonly { key: LockMode; label: string }[] = [{ key: 'off', label: 'O‘chiq' }, { key: 'app', label: 'Butun ilova' }, { key: 'muhosaba', label: 'Faqat Muhosaba' }];
+const scriptOptions: readonly { key: Script; label: string }[] = [{ key: 'latin', label: 'Lotin' }, { key: 'cyrillic', label: 'Кирилл' }];
+const anchorOptions = [{ key: 'clock', label: 'Soat bo‘yicha' }, { key: 'prayer', label: 'Namozdan so‘ng' }] as const;
+const saveLabels: Record<SaveTarget, string> = { folder: Platform.OS === 'web' ? 'Yuklab olish' : 'Papkaga saqlash', share: 'Ulashish' };
+const clockTime = (date: Date) => `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 const uzDate = (date: Date, withWeekday = false) => `${date.getDate()}-${months[date.getMonth()]}${withWeekday ? `, ${weekdays[date.getDay()]}` : ''}`;
 const keyDate = (dateKey: string, withWeekday = false) => uzDate(new Date(`${dateKey}T12:00:00`), withWeekday);
 const hour = (v: number) => `${String(v).padStart(2, '0')}:00`;
@@ -76,7 +98,7 @@ function Ornament() {
 }
 
 export default function App() {
-  const [fontsLoaded, fontError] = useFonts({ DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold, CormorantGaramond_500Medium, CormorantGaramond_600SemiBold });
+  const [fontsLoaded, fontError] = useFonts({ DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold, CormorantGaramond_500Medium, CormorantGaramond_600SemiBold, Onest_400Regular, Onest_500Medium, Onest_600SemiBold });
   if (!fontsLoaded && !fontError) return <View style={[s.outer, { justifyContent: 'center' }]}><ActivityIndicator color={c.forest} /></View>;
   return <SafeAreaProvider><Rahmat /></SafeAreaProvider>;
 }
@@ -105,7 +127,7 @@ function Rahmat() {
   const [notificationError, setNotificationError] = useState('');
   const [testStatus, setTestStatus] = useState('');
   const [busy, setBusy] = useState(false);
-  const [settingsDraft, setSettingsDraft] = useState<ReminderSettings | null>(null);
+  const [settingsDraft, setSettingsDraft] = useState<NormalizedReminderSettings | null>(null);
   const [settingsError, setSettingsError] = useState('');
   const [istighfarView, setIstighfarView] = useState<'counter' | 'adhkar'>('counter');
   const [tasbih, setTasbih] = useState<TasbihProgress>({ ...TASBIH_START });
@@ -120,6 +142,11 @@ function Rahmat() {
   const [pendingMode, setPendingMode] = useState<LockMode>('app');
   const [lockMessage, setLockMessage] = useState('');
   const [savingPin, setSavingPin] = useState(false);
+  const [backupStep, setBackupStep] = useState<BackupStep>({ kind: 'menu' });
+  const [passphrase, setPassphrase] = useState('');
+  const [passphraseAgain, setPassphraseAgain] = useState('');
+  const [backupBusy, setBackupBusy] = useState(false);
+  const [backupMessage, setBackupMessage] = useState('');
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latest = useRef<AppState | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -138,7 +165,7 @@ function Rahmat() {
   const slots = data ? istighfarSlots(data) : 0;
   const quote = content.reminders[quoteIndex] ?? content.reminders[0]!;
   const completedHabits = data?.days[day]?.habits ?? [];
-  const todaysHabits = data ? [...defaultHabits, ...customHabitsFor(data, day).map(habit => ({ id: habit.id, title: habit.title, subtitle: weekdaySummary(habit.weekdays), icon: Sparkles }))] : [];
+  const todaysHabits = data ? [...defaultHabits, ...customHabitsFor(data, day).map(habit => ({ id: habit.id, title: habit.title, subtitle: weekdaySummary(habit.weekdays), icon: Sparkles, custom: true }))] : [];
   const doneHabits = todaysHabits.filter(habit => completedHabits.includes(habit.id)).length;
   const lockMode = data?.lock.mode ?? 'off';
   const privateHidden = lockMode === 'muhosaba' && !muhosabaOpen;
@@ -146,6 +173,17 @@ function Rahmat() {
   const yesterdayIntention = data ? getEvening(data, shiftDateKey(day, -1))?.intention.trim() : undefined;
   const summary = data ? consistencySummary(data, day) : { active: 0, total: 7 };
   const reflectionName = (index: number, labelText: string) => privateHidden ? `Niyat ${index + 1}` : labelText;
+  // The app's own wording follows the chosen script; what the user wrote never changes.
+  const script: Script = data?.settings.script ?? 'latin';
+  const t = (text: string) => toScript(text, script);
+  const hijriOffset = data?.settings.hijriOffset ?? 0;
+  const hijriToday = hijriForDateKey(day, hijriOffset);
+  const nearFasting = nearFastingDays(day, hijriOffset);
+  const anchored = data?.settings.istighfarAnchor === 'prayer';
+  const filledPrayers = data ? data.settings.prayerTimes.flatMap((time, index) => time ? [{ index, time, name: PRAYER_NAMES[index]! }] : []) : [];
+  // Session N of a routine matches reminder N: the N-th prayer with a time, or the N-th clock time.
+  const sessionTag = (i: number) => anchored && filledPrayers[i] ? filledPrayers[i]!.name : data?.settings.times[i] ?? '';
+  const sessionName = (i: number) => anchored && filledPrayers[i] ? `${filledPrayers[i]!.name} namozidan so‘ng` : slotNames[i] ?? '';
   const showToast = useCallback((message: string) => {
     setToast(message);
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -164,7 +202,7 @@ function Rahmat() {
   useEffect(() => {
     if (!data || deleting.current) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => { saveState(data).then(() => setSaveError('')).catch(error => setSaveError(error instanceof Error ? error.message : 'O‘zgarishlarni saqlab bo‘lmadi.')); }, Platform.OS === 'web' ? 0 : 350);
+    saveTimer.current = setTimeout(() => { saveState(data).then(() => { setSaveError(''); void updateWidget(data).catch(() => undefined); }).catch(error => setSaveError(error instanceof Error ? error.message : 'O‘zgarishlarni saqlab bo‘lmadi.')); }, Platform.OS === 'web' ? 0 : 350);
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
   }, [data]);
   useEffect(() => {
@@ -219,14 +257,23 @@ function Rahmat() {
     update(old => incrementCount(old, current.id, slotIndex, delta, localDateKey()));
     if (delta > 0) tap();
   };
-  const validateSettings = (settings: ReminderSettings) => {
+  const validateSettings = (settings: NormalizedReminderSettings) => {
     if (settings.dayStart >= settings.dayEnd) return 'Kunning tugashi boshlanishidan keyin bo‘lishi kerak.';
-    if (settings.times.some(t => !TIME.test(t))) return 'Vaqtni SS:DD shaklida kiriting, masalan 08:00.';
-    const minutes = settings.times.map(t => Number(t.slice(0, 2)) * 60 + Number(t.slice(3)));
-    if (new Set(minutes).size !== 5) return 'Beshta vaqt bir-biridan farq qilishi kerak.';
-    if (minutes.some(t => t < settings.dayStart * 60 || t >= settings.dayEnd * 60)) return 'Barcha vaqtlarni faol kun oralig‘ida belgilang.';
-    if (minutes.some((t, i) => i > 0 && t <= minutes[i - 1]!)) return 'Vaqtlarni ertalabdan kechgacha ketma-ket kiriting.';
+    if (settings.istighfarAnchor === 'clock') {
+      if (settings.times.some(t => !TIME.test(t))) return 'Vaqtni SS:DD shaklida kiriting, masalan 08:00.';
+      const minutes = settings.times.map(t => Number(t.slice(0, 2)) * 60 + Number(t.slice(3)));
+      if (new Set(minutes).size !== 5) return 'Beshta vaqt bir-biridan farq qilishi kerak.';
+      if (minutes.some(t => t < settings.dayStart * 60 || t >= settings.dayEnd * 60)) return 'Barcha vaqtlarni faol kun oralig‘ida belgilang.';
+      if (minutes.some((t, i) => i > 0 && t <= minutes[i - 1]!)) return 'Vaqtlarni ertalabdan kechgacha ketma-ket kiriting.';
+    } else {
+      const filled = settings.prayerTimes.filter((time): time is string => !!time);
+      if (!filled.length) return 'Kamida bitta namoz uchun vaqt yozing, masalan 13:20.';
+      if (filled.some(t => !TIME.test(t))) return 'Namozdan keyingi vaqtni SS:DD shaklida yozing, masalan 13:20.';
+      const minutes = filled.map(t => Number(t.slice(0, 2)) * 60 + Number(t.slice(3)));
+      if (minutes.some((t, i) => i > 0 && t <= minutes[i - 1]!)) return 'Namoz vaqtlarini Bomdoddan Xuftongacha tartib bilan yozing.';
+    }
     if (settings.eveningTime && !TIME.test(settings.eveningTime)) return 'Kechki muhosaba vaqtini SS:DD shaklida kiriting, masalan 21:00.';
+    try { normalizeReminderSettings(settings); } catch (error) { return error instanceof Error ? error.message : 'Sozlamalarni tekshiring.'; }
     return '';
   };
   const applySettings = async (enable?: boolean) => {
@@ -252,10 +299,95 @@ function Rahmat() {
     try {
       await syncReminders({ ...createInitialState().settings, enabled: false }, 0, true);
       await clearState();
+      await clearWidget().catch(() => undefined);
       const next = createInitialState(); latest.current = next; setData(next); setSettingsDraft(next.settings); setSelectedId(''); setSlot(0); closeSheet(); setLoadError(false); setSaveError(''); setTab('today');
       setLocked(false); setMuhosabaOpen(false); setTasbih({ ...TASBIH_START }); setOpenEvening(null);
       showToast('Barcha qaydlar o‘chirildi.');
     } catch { showToast('O‘chirib bo‘lmadi. Qayta urinib ko‘ring.'); }
+    finally { deleting.current = false; setBusy(false); }
+  };
+  /** Script and Hijri corrections apply at once, and notifications are re-worded right away. */
+  const saveQuickSetting = async (patch: Partial<NormalizedReminderSettings>, message: string) => {
+    if (!data || busy || notificationOperation.current) return;
+    const next = { ...data.settings, ...patch };
+    setSettingsDraft(old => ({ ...(old ?? data.settings), ...patch }));
+    update(old => ({ ...old, settings: { ...old.settings, ...patch } }));
+    if (!next.enabled) { showToast(message); return; }
+    notificationOperation.current = true;
+    setBusy(true);
+    try {
+      const result = await syncReminders(next, slots, true);
+      setNotificationState(result); setNotificationError('');
+      if (result.status !== 'enabled') update(old => ({ ...old, settings: { ...old.settings, enabled: false } }));
+      showToast(message);
+    } catch { setNotificationError('Eslatmalarni yangilab bo‘lmadi. Qayta urinib ko‘ring.'); }
+    finally { notificationOperation.current = false; setBusy(false); }
+  };
+  const resetBackupForm = () => { setPassphrase(''); setPassphraseAgain(''); setBackupMessage(''); };
+  const openBackupSheet = () => { resetBackupForm(); setBackupStep(data?.lock.pin ? { kind: 'verify' } : { kind: 'menu' }); setSheet('backup'); };
+  const prepareBackup = async () => {
+    if (!data || backupBusy) return;
+    const problem = passphraseProblem(passphrase);
+    if (problem) { setBackupMessage(problem); return; }
+    if (passphrase.trim() !== passphraseAgain.trim()) { setBackupMessage('Maxfiy so‘zlar bir xil emas. Qaytadan yozing.'); return; }
+    setBackupBusy(true); setBackupMessage('');
+    try {
+      // Let the spinner appear before the deliberate, slow key derivation starts.
+      await new Promise(resolve => setTimeout(resolve, 30));
+      const text = await createBackup(latest.current ?? data, passphrase, { randomBytes: secureRandomBytes });
+      resetBackupForm();
+      setBackupStep({ kind: 'ready', name: backupFileName(), text, saved: false });
+    } catch (error) { setBackupMessage(error instanceof Error ? error.message : 'Zaxira yaratib bo‘lmadi.'); }
+    finally { setBackupBusy(false); }
+  };
+  // Runs straight from the tap: browsers allow a download or share sheet only then.
+  const deliverBackup = (target: SaveTarget) => {
+    if (backupStep.kind !== 'ready') return;
+    const ready = backupStep;
+    setBackupMessage('');
+    saveBackup(ready.name, ready.text, target)
+      .then(done => { if (done) { setBackupStep({ ...ready, saved: true }); showToast(target === 'share' ? 'Zaxira fayli ulashildi.' : 'Zaxira fayli saqlandi.'); } })
+      .catch(error => setBackupMessage(error instanceof Error ? error.message : 'Faylni saqlab bo‘lmadi.'));
+  };
+  const chooseBackupFile = () => {
+    setBackupMessage('');
+    pickBackupText()
+      .then(text => {
+        if (text === null) return;
+        const envelope = readBackupEnvelope(text);
+        resetBackupForm();
+        setBackupStep({ kind: 'unlock', text, createdAt: envelope.createdAt });
+      })
+      .catch(error => setBackupMessage(error instanceof Error ? error.message : 'Faylni ochib bo‘lmadi.'));
+  };
+  const unlockBackup = async () => {
+    if (backupStep.kind !== 'unlock' || backupBusy) return;
+    const { text, createdAt } = backupStep;
+    setBackupBusy(true); setBackupMessage('');
+    try {
+      await new Promise(resolve => setTimeout(resolve, 30));
+      const state = await openBackup(text, passphrase);
+      resetBackupForm();
+      setBackupStep({ kind: 'confirm', state, summary: summarizeBackup(state, createdAt) });
+    } catch (error) { setBackupMessage(error instanceof Error ? error.message : 'Zaxirani ochib bo‘lmadi.'); }
+    finally { setBackupBusy(false); }
+  };
+  const restoreBackup = async () => {
+    if (backupStep.kind !== 'confirm' || busy) return;
+    // Reminders start switched off on this phone; the user turns them on (and grants permission) here.
+    const next: AppState = { ...backupStep.state, settings: { ...backupStep.state.settings, enabled: false } };
+    setBusy(true); deleting.current = true;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    try {
+      await syncReminders({ ...next.settings, enabled: false }, 0, true);
+      await saveState(next);
+      latest.current = next; setData(next); setSettingsDraft(next.settings); setSelectedId(''); setSlot(0);
+      setTasbih({ ...TASBIH_START }); setOpenEvening(null); setLocked(false); setMuhosabaOpen(false); setNotificationState(null);
+      closeSheet(); setTab('today');
+      showToast(next.lock.mode !== 'off'
+        ? 'Zaxira tiklandi. Qulf zaxiradagi PIN kod bilan ochiladi. Eslatmalarni qayta yoqing.'
+        : 'Zaxira tiklandi. Eslatmalarni Eslatmalar bo‘limida qayta yoqing.');
+    } catch (error) { setBackupMessage(error instanceof Error ? error.message : 'Zaxirani tiklab bo‘lmadi.'); }
     finally { deleting.current = false; setBusy(false); }
   };
   const openLockSheet = () => { setLockMessage(''); setPinDraft(''); setPinFirst(''); setLockStep(data?.lock.pin ? 'verify' : 'menu'); setSheet('lock'); };
@@ -286,20 +418,23 @@ function Rahmat() {
 
   if (!data) return <View style={[s.outer, { justifyContent: 'center', padding: 28 }]}><StatusBar style="dark" />{loadError ? <View style={[s.stack, { maxWidth: 400 }]}><Text style={s.heading}>Qaydlarni ochib bo‘lmadi</Text><Text style={s.text}>Saqlangan ma’lumotlar almashtirilmadi. Qayta urinib ko‘ring.</Text>{sheet === 'clear' ? <><Text style={[s.text, { color: c.danger }]}>Barcha qaydlarni butunlay o‘chirishni xohlaysizmi? Ularni qaytarib bo‘lmaydi.</Text><Button disabled={busy} onPress={() => void wipe()}>Ha, hammasini o‘chirish</Button><Button secondary onPress={() => setSheet(null)}>Bekor qilish</Button></> : <><Button onPress={reload}>Qayta urinish</Button><Button secondary onPress={() => setSheet('clear')}>Ma’lumotlarni tozalash</Button></>}</View> : <ActivityIndicator color={c.forest} />}</View>;
   if (data.lock.mode === 'app' && locked && data.lock.pin) {
-    return <View style={s.outer}><StatusBar style="dark" /><View style={[s.shell, { paddingTop: insets.top + 32, paddingHorizontal: 24, justifyContent: 'center' }]}>
+    return <ScriptProvider value={script}><View style={s.outer}><StatusBar style="dark" /><View style={[s.shell, { paddingTop: insets.top + 32, paddingHorizontal: 24, justifyContent: 'center' }]}>
       <LockScreen key={bioReady ? 'device' : 'pin'} pin={data.lock.pin} biometrics={data.lock.biometrics && bioReady} title="Rahmat qulflangan" subtitle="Davom etish uchun PIN kodni kiriting." onUnlock={() => setLocked(false)} onForgot={wipe} />
-    </View></View>;
+    </View></View></ScriptProvider>;
   }
   const draft = settingsDraft ?? data.settings;
   const week = Array.from({ length: 7 }, (_, i) => { const d = new Date(now); d.setDate(d.getDate() - ((d.getDay() + 6) % 7) + i); return d; });
   const sourceLink = <Pressable accessibilityRole="link" onPress={() => openSource(quote.url)} style={s.linkButton}><Text style={s.source}>{quote.source}</Text><ExternalLink size={12} color={c.forest} /></Pressable>;
   const history = eveningHistory(data).filter(item => item.dateKey !== day);
-  const eveningRow = (title: string, text: string) => text ? <View style={{ gap: 2 }}><Text style={s.tiny}>{title.toUpperCase()}</Text><Text style={s.text}>{text}</Text></View> : null;
+  const eveningRow = (title: string, text: string) => text ? <View style={{ gap: 2 }}><Text style={s.tiny}>{title.toUpperCase()}</Text><Text raw style={s.text}>{text}</Text></View> : null;
+  const upcoming = upcomingFastingDays(day, hijriOffset, 400).slice(0, 5);
+  const sourceButton = (label: string, url: string) => <Pressable accessibilityRole="link" onPress={() => openSource(url)} style={s.linkButton}><Text style={s.source}>{label}</Text><ExternalLink size={12} color={c.forest} /></Pressable>;
+  const backupDate = (iso: string) => { const date = new Date(iso); return `${uzDate(date)} ${date.getFullYear()}, ${clockTime(date)}`; };
   const modalOpen = sheet !== null || deleteId !== null || deleteEveningKey !== null;
   const sheetBody = modalOpen ? <>
-      <View style={s.between}><Text style={s.heading}>{deleteId ? 'Niyatni o‘chirish' : deleteEveningKey ? 'Yozuvni o‘chirish' : sheet === 'add' ? 'Yangi niyat' : sheet === 'clear' ? 'Yangidan boshlash' : sheet === 'goal' ? 'Kunlik reja' : sheet === 'habits' ? 'Odatlarim' : sheet === 'consistency' ? 'So‘nggi 30 kun' : sheet === 'evening' ? muhosaba.title : sheet === 'lock' ? 'Ilova qulfi' : 'Niyat va manbalar'}</Text><IconButton label="Yopish" onPress={() => { if (!busy) closeSheet(); }}><X size={20} color={c.forest} /></IconButton></View>
-      {sheet === 'add' && !deleteId && !deleteEveningKey && <><Text style={s.muted}>Bu makon baholash uchun emas, yaxshilikka qaytish uchun.</Text><Text style={s.medium}>Niyat nomi · ixtiyoriy</Text><TextInput accessibilityLabel="Niyat nomi" value={label} onChangeText={setLabel} maxLength={48} placeholder="Masalan, sabrliroq bo‘lish" placeholderTextColor={c.muted} style={s.input} /><Text style={s.medium}>Shaxsiy eslatma · ixtiyoriy</Text><TextInput accessibilityLabel="Shaxsiy eslatma" value={note} onChangeText={setNote} multiline maxLength={120} placeholder="Yozmasangiz ham bo‘ladi…" placeholderTextColor={c.muted} style={[s.input, { minHeight: 96, textAlignVertical: 'top' }]} /><View style={[s.softCard, { gap: 12 }]}><Text style={s.medium}>Kunlik istig‘for rejasi</Text><GoalPicker sessions={routine.sessions} target={routine.target} onChange={(sessions, value) => setRoutineDraft({ sessions, target: value })} /><Text style={s.muted}>Bu o‘zingiz tanlagan maqsad. Istalgan payt rejani o‘zgartirishingiz, niyatni tanaffusga qo‘yishingiz yoki o‘chirishingiz mumkin.</Text></View><Button onPress={saveReflection}>Niyatni saqlash</Button></>}
-      {sheet === 'goal' && goal && <><Text style={s.muted}>{privateHidden ? 'Tanlangan niyat' : data.reflections.find(r => r.id === goal.id)?.label}: necha mahal va har mahalda nechta istig‘for aytishni o‘zingiz tanlang.</Text><GoalPicker sessions={goal.sessions} target={goal.target} onChange={(sessions, value) => setGoal({ ...goal, sessions, target: value })} /><Text style={s.muted}>Bugungi sanoqlar o‘chmaydi. Maqsad kamaysa, ortig‘i ko‘rsatilmaydi; qayta oshirsangiz, yana ko‘rinadi.</Text><Button onPress={saveGoal}>Rejani saqlash</Button></>}
+      <View style={s.between}><Text style={s.heading}>{deleteId ? 'Niyatni o‘chirish' : deleteEveningKey ? 'Yozuvni o‘chirish' : sheet === 'add' ? 'Yangi niyat' : sheet === 'clear' ? 'Yangidan boshlash' : sheet === 'goal' ? 'Kunlik reja' : sheet === 'habits' ? 'Odatlarim' : sheet === 'consistency' ? 'So‘nggi 30 kun' : sheet === 'evening' ? muhosaba.title : sheet === 'lock' ? 'Ilova qulfi' : sheet === 'calendar' ? 'Hijriy taqvim' : sheet === 'backup' ? 'Zaxira nusxa' : 'Niyat va manbalar'}</Text><IconButton label="Yopish" onPress={() => { if (!busy) closeSheet(); }}><X size={20} color={c.forest} /></IconButton></View>
+      {sheet === 'add' && !deleteId && !deleteEveningKey && <><Text style={s.muted}>Bu makon baholash uchun emas, yaxshilikka qaytish uchun.</Text><Text style={s.medium}>Niyat nomi · ixtiyoriy</Text><TextInput accessibilityLabel={t('Niyat nomi')} value={label} onChangeText={setLabel} maxLength={48} placeholder={t('Masalan, sabrliroq bo‘lish')} placeholderTextColor={c.muted} style={s.input} /><Text style={s.medium}>Shaxsiy eslatma · ixtiyoriy</Text><TextInput accessibilityLabel={t('Shaxsiy eslatma')} value={note} onChangeText={setNote} multiline maxLength={120} placeholder={t('Yozmasangiz ham bo‘ladi…')} placeholderTextColor={c.muted} style={[s.input, { minHeight: 96, textAlignVertical: 'top' }]} /><View style={[s.softCard, { gap: 12 }]}><Text style={s.medium}>Kunlik istig‘for rejasi</Text><GoalPicker sessions={routine.sessions} target={routine.target} onChange={(sessions, value) => setRoutineDraft({ sessions, target: value })} /><Text style={s.muted}>Bu o‘zingiz tanlagan maqsad. Istalgan payt rejani o‘zgartirishingiz, niyatni tanaffusga qo‘yishingiz yoki o‘chirishingiz mumkin.</Text></View><Button onPress={saveReflection}>Niyatni saqlash</Button></>}
+      {sheet === 'goal' && goal && <><Text style={s.muted}>{privateHidden ? 'Tanlangan niyat' : <Text raw>{data.reflections.find(r => r.id === goal.id)?.label}</Text>}: necha mahal va har mahalda nechta istig‘for aytishni o‘zingiz tanlang.</Text><GoalPicker sessions={goal.sessions} target={goal.target} onChange={(sessions, value) => setGoal({ ...goal, sessions, target: value })} /><Text style={s.muted}>Bugungi sanoqlar o‘chmaydi. Maqsad kamaysa, ortig‘i ko‘rsatilmaydi; qayta oshirsangiz, yana ko‘rinadi.</Text><Button onPress={saveGoal}>Rejani saqlash</Button></>}
       {sheet === 'habits' && <HabitEditor habits={data.habits} defaults={defaultHabits} onAdd={(title, days) => { update(old => addCustomHabit(old, { title, weekdays: days })); showToast('Odat qo‘shildi.'); }} onRemove={id => { update(old => removeCustomHabit(old, id)); showToast('Odat ro‘yxatdan olindi. O‘tgan kunlardagi belgilar saqlanadi.'); }} />}
       {sheet === 'consistency' && <><Text style={s.text}>{`So‘nggi 30 kunning ${activityCalendar(data, day).filter(item => item.active).length} kunida yaxshi amal qayd etildi.`}</Text><ConsistencyView days={activityCalendar(data, day)} /><Text style={s.muted}>Belgilangan kun — kamida bitta odat, istig‘for, zikr yoki muhosaba qayd etilgan kun. Bu yerda zanjir uzilmaydi: o‘tkazib yuborilgan kun qarzga aylanmaydi.</Text><View style={[s.softCard, { gap: 6 }]}><Text style={s.medium}>{steady.title}</Text><Text style={s.text}>{steady.text}</Text><Pressable accessibilityRole="link" onPress={() => openSource(steady.url)} style={s.linkButton}><Text style={s.source}>{steady.source}</Text><ExternalLink size={12} color={c.forest} /></Pressable></View></>}
       {sheet === 'evening' && <EveningEditor initial={todayEvening} onSave={answers => { update(old => saveEvening(old, answers, localDateKey())); closeSheet(); showToast(answers.gratitude.trim() || answers.improve.trim() || answers.intention.trim() ? 'Muhosaba saqlandi. Alloh qabul qilsin.' : 'Bugungi yozuv o‘chirildi.'); }} onDelete={() => { update(old => deleteEvening(old, localDateKey())); closeSheet(); showToast('Bugungi yozuv o‘chirildi.'); }} />}
@@ -309,7 +444,7 @@ function Rahmat() {
           <Text style={s.muted}>Qulf ilovani boshqalar ochib ko‘rishidan saqlaydi. Telefoningizning o‘z qulfi ham yoqilgan bo‘lsin.</Text>
           <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap' }}>{lockModes.map(mode => <Choice key={mode.key} wide label={mode.label} selected={lockMode === mode.key} onPress={() => chooseLockMode(mode.key)} />)}</View>
           <Text style={s.muted}>{lockMode === 'app' ? 'Ilova har safar ochilganda PIN kod so‘raladi.' : lockMode === 'muhosaba' ? 'Muhosaba bo‘limi va niyat nomlari PIN kod bilan yopiladi. Bugun, sanoq va eslatmalar ochiq qoladi.' : 'Qulf o‘chiq.'}</Text>
-          {lockMode !== 'off' && Platform.OS !== 'web' && bioReady && <View style={s.between}><Text style={[s.text, { flex: 1 }]}>Telefon qulfi (barmoq izi yoki yuz) bilan ochish</Text><Switch accessibilityLabel="Telefon qulfi bilan ochish" value={data.lock.biometrics} onValueChange={value => update(old => old.lock.mode === 'off' ? old : { ...old, lock: { ...old.lock, biometrics: value } })} trackColor={{ false: '#D3D8CE', true: c.forest }} thumbColor={c.white} /></View>}
+          {lockMode !== 'off' && Platform.OS !== 'web' && bioReady && <View style={s.between}><Text style={[s.text, { flex: 1 }]}>Telefon qulfi (barmoq izi yoki yuz) bilan ochish</Text><Switch accessibilityLabel={t('Telefon qulfi bilan ochish')} value={data.lock.biometrics} onValueChange={value => update(old => old.lock.mode === 'off' ? old : { ...old, lock: { ...old.lock, biometrics: value } })} trackColor={{ false: '#D3D8CE', true: c.forest }} thumbColor={c.white} /></View>}
           {lockMode !== 'off' && <Button secondary onPress={() => { setPendingMode(lockMode); setPinDraft(''); setPinFirst(''); setLockMessage(''); setLockStep('new'); }}>PIN kodni almashtirish</Button>}
           <Text style={s.muted}>PIN kodni unutsangiz, uni tiklab bo‘lmaydi: qayta boshlashning yagona yo‘li — barcha ma’lumotlarni o‘chirish.</Text>
         </>}
@@ -326,26 +461,115 @@ function Rahmat() {
           <Button secondary disabled={savingPin} onPress={() => { setPinDraft(''); setPinFirst(''); setLockStep('new'); }}>Orqaga</Button>
         </View>}
       </>}
-      {sheet === 'about' && !deleteId && !deleteEveningKey && <><Text style={s.text}>{content.istighfarNote.text}</Text><Pressable accessibilityRole="link" onPress={() => openSource(content.istighfarNote.url)} style={s.linkButton}><Text style={s.source}>{content.istighfarNote.source}</Text><ExternalLink size={13} color={c.forest} /></Pressable><Text style={s.muted}>{content.istighfarNote.progressNotice}</Text>{content.scholarReview.status !== 'approved' && <ReviewNotice text={content.scholarReview.notice} />}<Text style={s.heading}>Sunnat eslatmalari</Text><Text style={s.muted}>{content.contentNotice} Manbalar {content.verifiedOn} sanasida hadis matniga solishtirildi.</Text>{Object.entries(categoryNames).map(([key, name]) => { const items = content.reminders.filter(r => r.timeCategory === key); return items.length ? <View key={key} style={{ gap: 2 }}><Text style={[s.eyebrow, { marginTop: 8 }]}>{name.toUpperCase()}</Text>{items.map(r => <Pressable key={r.id} accessibilityRole="link" onPress={() => openSource(r.url)} style={{ gap: 4, paddingVertical: 8 }}><Text style={s.medium}>{r.title}</Text><Text style={s.source}>{r.source} ↗</Text></Pressable>)}</View> : null; })}<Text style={s.heading}>Zikrlar</Text>{adhkar.items.map(item => <Pressable key={item.id} accessibilityRole="link" onPress={() => openSource(item.url)} style={{ gap: 4, paddingVertical: 8 }}><Text style={s.medium}>{item.title}</Text><Text style={s.source}>{item.source} ↗</Text></Pressable>)}<Text style={s.muted}>Har bir faol niyatning sanoqlari alohida saqlanadi. Yangi kun yangi sanoqdan boshlanadi. O‘tgan 30 kunlik odat, sanoq va muhosaba yozuvlari saqlanadi, eskilari o‘chib boradi.</Text></>}
-      {sheet === 'clear' && <><Text style={s.text}>Barcha niyatlar, sanoqlar, odatlar va muhosaba yozuvlari o‘chiriladi. Eslatmalar va ilova qulfi ham o‘chadi. Bu amalni ortga qaytarib bo‘lmaydi.</Text><Button disabled={busy} onPress={() => void wipe()}>{busy ? 'O‘chirilmoqda…' : 'Ha, hammasini o‘chirish'}</Button><Button secondary onPress={() => setSheet(null)}>Saqlab qolish</Button></>}
+      {sheet === 'about' && !deleteId && !deleteEveningKey && <><Text style={s.text}>{content.istighfarNote.text}</Text><Pressable accessibilityRole="link" onPress={() => openSource(content.istighfarNote.url)} style={s.linkButton}><Text style={s.source}>{content.istighfarNote.source}</Text><ExternalLink size={13} color={c.forest} /></Pressable><Text style={s.muted}>{content.istighfarNote.progressNotice}</Text>{content.scholarReview.status !== 'approved' && <ReviewNotice text={content.scholarReview.notice} />}<Text style={s.heading}>Sunnat eslatmalari</Text><Text style={s.muted}>{content.contentNotice} Manbalar {content.verifiedOn} sanasida hadis matniga solishtirildi.</Text>{Object.entries(categoryNames).map(([key, name]) => { const items = content.reminders.filter(r => r.timeCategory === key); return items.length ? <View key={key} style={{ gap: 2 }}><Text style={[s.eyebrow, { marginTop: 8 }]}>{name.toUpperCase()}</Text>{items.map(r => <Pressable key={r.id} accessibilityRole="link" onPress={() => openSource(r.url)} style={{ gap: 4, paddingVertical: 8 }}><Text style={s.medium}>{r.title}</Text><Text style={s.source}>{r.source} ↗</Text></Pressable>)}</View> : null; })}<Text style={s.heading}>Zikrlar</Text>{adhkar.items.map(item => <Pressable key={item.id} accessibilityRole="link" onPress={() => openSource(item.url)} style={{ gap: 4, paddingVertical: 8 }}><Text style={s.medium}>{item.title}</Text><Text style={s.source}>{item.source} ↗</Text></Pressable>)}<Pressable accessibilityRole="link" onPress={() => openSource(prayer.afterPrayer.url)} style={{ gap: 4, paddingVertical: 8 }}><Text style={s.medium}>{prayer.afterPrayer.title}</Text><Text style={s.source}>{prayer.afterPrayer.source} ↗</Text></Pressable><Text style={s.heading}>Nafl ro‘zalar</Text>{FASTING_DAYS.map(item => <Pressable key={item.id} accessibilityRole="link" onPress={() => openSource(item.url)} style={{ gap: 4, paddingVertical: 8 }}><Text style={s.medium}>{item.title}</Text><Text style={s.source}>{item.source} ↗</Text></Pressable>)}<Text style={s.muted}>Har bir faol niyatning sanoqlari alohida saqlanadi. Yangi kun yangi sanoqdan boshlanadi. O‘tgan 30 kunlik odat, sanoq va muhosaba yozuvlari saqlanadi, eskilari o‘chib boradi.</Text></>}
+      {sheet === 'calendar' && <>
+        <View style={[s.softCard, { gap: 4, alignItems: 'center' }]}>
+          <Text style={s.eyebrow}>{uzDate(now, true).toUpperCase()}</Text>
+          <Text style={[s.heading, { textAlign: 'center', fontFamily: fonts.bold, fontSize: 22, lineHeight: 30 }]}>{formatHijri(hijriToday)}</Text>
+          <Text style={s.muted}>hijriy sana · taxminiy</Text>
+        </View>
+        <View style={[s.card, { gap: 10 }]}>
+          <Text style={s.medium}>Mahalliy e’longa moslash</Text>
+          <View style={s.between}>
+            <IconButton label="Sanani bir kun oldinga olish" disabled={busy || hijriOffset <= -HIJRI_OFFSET_LIMIT} onPress={() => void saveQuickSetting({ hijriOffset: hijriOffset - 1 }, 'Hijriy sana to‘g‘rilandi.')}><Minus size={16} color={c.forest} /></IconButton>
+            <View style={{ alignItems: 'center' }}><Text style={[s.heading, { fontFamily: fonts.bold, fontSize: 22 }]}>{hijriOffset > 0 ? `+${hijriOffset}` : `${hijriOffset}`}</Text><Text style={s.tiny}>KUN</Text></View>
+            <IconButton label="Sanani bir kun keyinga surish" disabled={busy || hijriOffset >= HIJRI_OFFSET_LIMIT} onPress={() => void saveQuickSetting({ hijriOffset: hijriOffset + 1 }, 'Hijriy sana to‘g‘rilandi.')}><Plus size={16} color={c.forest} /></IconButton>
+          </View>
+          <Text style={s.muted}>{fasting.calendarNotice}</Text>
+        </View>
+        {fasting.scholarReview.status !== 'approved' && <ReviewNotice text={fasting.scholarReview.notice} />}
+        <Text style={s.text}>{fasting.intro}</Text>
+        <Text style={s.heading}>Kelgusi kunlar</Text>
+        {upcoming.map(event => <View key={`${event.day.id}-${event.dateKey}`} style={[s.card, { gap: 6, padding: 16 }]}>
+          <Text style={s.tiny}>{(event.ongoing ? 'Hozir davom etmoqda' : keyDate(event.dateKey, true)).toUpperCase()} · {formatHijri(event.hijri).toUpperCase()}</Text>
+          <Text style={s.medium}>{event.day.title}</Text>
+          <Text style={s.muted}>{event.day.text}</Text>
+          {sourceButton(event.day.source, event.day.url)}
+        </View>)}
+        <Text style={s.heading}>Doimiy sunnatlar</Text>
+        {FASTING_DAYS.filter(item => item.when.type === 'weekly' || item.when.type === 'monthly').map(item => <View key={item.id} style={[s.card, { gap: 6, padding: 16 }]}>
+          <Text style={s.medium}>{item.title}</Text><Text style={s.muted}>{item.text}</Text>{sourceButton(item.source, item.url)}
+        </View>)}
+        <Text style={s.muted}>{data.settings.fastingReminders ? 'Belgilangan kunlardan bir kun oldin, kechqurun eslatma keladi.' : 'Belgilangan kunlardan bir kun oldin eslatma olish uchun Eslatmalar bo‘limida «Nafl ro‘za kunlari»ni yoqing.'}</Text>
+      </>}
+      {sheet === 'backup' && <>
+        {backupStep.kind === 'verify' && data.lock.pin && <LockScreen pin={data.lock.pin} biometrics={data.lock.biometrics && bioReady} title="Avval tasdiqlang" subtitle="Zaxira barcha shaxsiy yozuvlarni o‘z ichiga oladi. PIN kodni kiriting." onUnlock={() => setBackupStep({ kind: 'menu' })} onForgot={wipe} />}
+        {backupStep.kind === 'menu' && <>
+          <Text style={s.muted}>Zaxira — barcha niyat, sanoq, odat, muhosaba yozuvlari va sozlamalarning bitta fayldagi nusxasi. Fayl siz tanlagan maxfiy so‘z bilan shifrlanadi: usiz uni hech kim, hatto Rahmat ham ocholmaydi.</Text>
+          <View style={[s.card, { gap: 10 }]}>
+            <View style={[s.row, { gap: 8 }]}><Download size={17} color={c.forest} /><Text style={s.medium}>Zaxira yaratish</Text></View>
+            <Text style={s.muted}>Yangi telefonga ko‘chirish yoki ehtiyot uchun. Faylni Telegram «Saqlangan xabarlar», Google Drive yoki xotira kartasida saqlashingiz mumkin.</Text>
+            <Button onPress={() => { resetBackupForm(); setBackupStep({ kind: 'export' }); }}>Zaxira yaratish</Button>
+          </View>
+          <View style={[s.card, { gap: 10 }]}>
+            <View style={[s.row, { gap: 8 }]}><Upload size={17} color={c.forest} /><Text style={s.medium}>Zaxiradan tiklash</Text></View>
+            <Text style={s.muted}>Shu telefondagi joriy ma’lumotlar zaxiradagilar bilan almashtiriladi. Brauzerdagi Rahmatdan Android ilovaga ko‘chirish ham shu yo‘l bilan.</Text>
+            <Button secondary onPress={chooseBackupFile}>Zaxira faylini tanlash</Button>
+          </View>
+        </>}
+        {backupStep.kind === 'export' && <>
+          <Text style={s.text}>Zaxira uchun maxfiy so‘z o‘ylab toping. Eng yaxshisi — 3–4 so‘zdan iborat, faqat sizga ma’lum ibora.</Text>
+          <TextInput accessibilityLabel={t('Maxfiy so‘z')} value={passphrase} onChangeText={value => { setPassphrase(value); setBackupMessage(''); }} secureTextEntry autoCapitalize="none" autoCorrect={false} maxLength={200} placeholder={t('Maxfiy so‘z (kamida 8 belgi)')} placeholderTextColor={c.muted} style={s.input} editable={!backupBusy} />
+          <TextInput accessibilityLabel={t('Maxfiy so‘zni takrorlang')} value={passphraseAgain} onChangeText={value => { setPassphraseAgain(value); setBackupMessage(''); }} secureTextEntry autoCapitalize="none" autoCorrect={false} maxLength={200} placeholder={t('Yana bir bor')} placeholderTextColor={c.muted} style={s.input} editable={!backupBusy} />
+          <Text style={[s.muted, { color: c.danger }]}>Maxfiy so‘zni unutsangiz, zaxirani ochib bo‘lmaydi — uni tiklash yo‘li yo‘q.</Text>
+          {!!backupMessage && <Text accessibilityRole="alert" style={[s.muted, { color: c.danger }]}>{backupMessage}</Text>}
+          <Button disabled={backupBusy} onPress={() => void prepareBackup()}>{backupBusy ? 'Shifrlanmoqda…' : 'Shifrlash va tayyorlash'}</Button>
+          {backupBusy && <ActivityIndicator color={c.forest} />}
+          <Button secondary disabled={backupBusy} onPress={() => { resetBackupForm(); setBackupStep({ kind: 'menu' }); }}>Orqaga</Button>
+        </>}
+        {backupStep.kind === 'ready' && <>
+          <View style={[s.softCard, { gap: 6 }]}><View style={[s.row, { gap: 8 }]}><Check size={17} color={c.forest} /><Text style={s.medium}>{backupStep.saved ? 'Zaxira saqlandi' : 'Zaxira fayli tayyor'}</Text></View><Text raw style={s.muted}>{backupStep.name}</Text></View>
+          <Text style={s.muted}>Faylni o‘zingizga qulay joyga saqlang. Uni ochish uchun maxfiy so‘z kerak bo‘ladi.</Text>
+          {SAVE_TARGETS.map(target => <Button key={target} secondary={target !== SAVE_TARGETS[0]} onPress={() => deliverBackup(target)}>{saveLabels[target]}</Button>)}
+          {!!backupMessage && <Text accessibilityRole="alert" style={[s.muted, { color: c.danger }]}>{backupMessage}</Text>}
+          <Button secondary onPress={closeSheet}>Tayyor</Button>
+        </>}
+        {backupStep.kind === 'unlock' && <>
+          <View style={[s.softCard, { gap: 4 }]}><Text style={s.medium}>Rahmat zaxirasi</Text><Text style={s.muted}>Yaratilgan: {backupDate(backupStep.createdAt)}</Text></View>
+          <Text style={s.text}>Zaxirani yaratishda tanlangan maxfiy so‘zni kiriting.</Text>
+          <TextInput accessibilityLabel={t('Maxfiy so‘z')} value={passphrase} onChangeText={value => { setPassphrase(value); setBackupMessage(''); }} secureTextEntry autoCapitalize="none" autoCorrect={false} maxLength={200} placeholder={t('Maxfiy so‘z')} placeholderTextColor={c.muted} style={s.input} editable={!backupBusy} />
+          {!!backupMessage && <Text accessibilityRole="alert" style={[s.muted, { color: c.danger }]}>{backupMessage}</Text>}
+          <Button disabled={backupBusy || !passphrase.trim()} onPress={() => void unlockBackup()}>{backupBusy ? 'Ochilmoqda…' : 'Zaxirani ochish'}</Button>
+          {backupBusy && <ActivityIndicator color={c.forest} />}
+          <Button secondary disabled={backupBusy} onPress={() => { resetBackupForm(); setBackupStep({ kind: 'menu' }); }}>Boshqa fayl</Button>
+        </>}
+        {backupStep.kind === 'confirm' && <>
+          <View style={[s.card, { gap: 6 }]}>
+            <Text style={s.medium}>Zaxirada</Text>
+            <Text style={s.muted}>{`${backupStep.summary.reflections} ta niyat · ${backupStep.summary.days} kunlik yozuv · ${backupStep.summary.habits} ta shaxsiy odat`}</Text>
+            <Text style={s.muted}>Yaratilgan: {backupDate(backupStep.summary.createdAt)}</Text>
+            {backupStep.summary.lock && <Text style={s.muted}>Ilova qulfi bilan: ochish uchun zaxiradagi PIN kod ishlatiladi.</Text>}
+          </View>
+          <Text style={[s.text, { color: c.danger }]}>Shu telefondagi joriy ma’lumotlar zaxiradagilar bilan almashtiriladi. Buni ortga qaytarib bo‘lmaydi.</Text>
+          {!!backupMessage && <Text accessibilityRole="alert" style={[s.muted, { color: c.danger }]}>{backupMessage}</Text>}
+          <Button disabled={busy} onPress={() => void restoreBackup()}>{busy ? 'Tiklanmoqda…' : 'Ha, zaxiradan tiklash'}</Button>
+          <Button secondary disabled={busy} onPress={() => { resetBackupForm(); setBackupStep({ kind: 'menu' }); }}>Bekor qilish</Button>
+        </>}
+      </>}
+      {sheet === 'clear' && <><Text style={s.text}>Barcha niyatlar, sanoqlar, odatlar va muhosaba yozuvlari o‘chiriladi. Eslatmalar va ilova qulfi ham o‘chadi. Bu amalni ortga qaytarib bo‘lmaydi.</Text><Text style={s.muted}>Keyinroq qaytarish uchun avval «Zaxira nusxa» olishingiz mumkin.</Text><Button disabled={busy} onPress={() => void wipe()}>{busy ? 'O‘chirilmoqda…' : 'Ha, hammasini o‘chirish'}</Button><Button secondary onPress={() => setSheet(null)}>Saqlab qolish</Button></>}
       {deleteId && <><Text style={s.text}>Ushbu niyat va uning sanoqlari o‘chiriladi. Boshqa niyatlar saqlanib qoladi.</Text><Button onPress={() => { const id = deleteId; update(old => ({ ...old, reflections: old.reflections.filter(r => r.id !== id), days: Object.fromEntries(Object.entries(old.days).map(([key, value]) => { const nextCounts = { ...value.counts }; delete nextCounts[id]; return [key, { ...value, counts: nextCounts }]; })) })); setDeleteId(null); showToast('Niyat o‘chirildi.'); }}>Niyatni o‘chirish</Button><Button secondary onPress={() => setDeleteId(null)}>Saqlab qolish</Button></>}
       {deleteEveningKey && <><Text style={s.text}>{keyDate(deleteEveningKey, true)} kungi muhosaba yozuvi o‘chiriladi. Qaytarib bo‘lmaydi.</Text><Button onPress={() => { const key = deleteEveningKey; update(old => deleteEvening(old, key)); setDeleteEveningKey(null); setOpenEvening(null); showToast('Yozuv o‘chirildi.'); }}>Yozuvni o‘chirish</Button><Button secondary onPress={() => setDeleteEveningKey(null)}>Saqlab qolish</Button></>}
   </> : null;
   if (modalOpen) lastSheetBody.current = sheetBody;
 
-  return <View style={s.outer}><StatusBar style="dark" /><View style={[s.shell, { paddingTop: insets.top }]}>
+  return <ScriptProvider value={script}><View style={s.outer}><StatusBar style="dark" /><View style={[s.shell, { paddingTop: insets.top }]}>
     <ScrollView ref={scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={s.body}>
       <View style={s.between}><View style={s.row}><View style={s.logo}><Sprout size={21} color={c.paper} strokeWidth={1.5} /></View><Text style={s.brand}>RAHMAT</Text></View><IconButton label="Eslatma sozlamalari" onPress={() => setTab('reminders')}><Bell size={20} color={c.ink} strokeWidth={1.6} /></IconButton></View>
       {!!saveError && <View style={s.error}><Text style={s.text}>{saveError}</Text><Button secondary onPress={() => saveState(data).then(() => setSaveError('')).catch(error => setSaveError(error instanceof Error ? error.message : 'Saqlashda xato.'))}>Qayta saqlash</Button></View>}
 
       {tab === 'today' && <>
-        <View style={{ gap: 10 }}><Text style={s.eyebrow}>{uzDate(now, true).toUpperCase()}</Text><Text style={s.title}>Yaxshilik sari,{ '\n' }har kuni.</Text><Text style={s.muted}>Kichik qadamlar. Mustahkam odatlar.</Text></View>
+        <View style={{ gap: 10 }}><View style={{ gap: 2 }}><Text style={s.eyebrow}>{uzDate(now, true).toUpperCase()}</Text><Pressable accessibilityRole="button" accessibilityLabel={t(`Hijriy taqvim: ${formatHijri(hijriToday)}, taxminiy`)} onPress={() => setSheet('calendar')} style={({ pressed }) => [s.row, { gap: 6, alignSelf: 'flex-start', minHeight: 32 }, pressed && s.pressed]}><MoonStar size={13} color={c.forest} /><Text style={[s.eyebrow, { color: c.forest }]}>{formatHijri(hijriToday).toUpperCase()}</Text><ChevronRight size={13} color={c.forest} /></Pressable></View><Text style={s.title}>Yaxshilik sari,{ '\n' }har kuni.</Text><Text style={s.muted}>Kichik qadamlar. Mustahkam odatlar.</Text></View>
+        {nearFasting.map(event => <Pressable key={`${event.day.id}-${event.dateKey}`} accessibilityRole="button" onPress={() => setSheet('calendar')} style={({ pressed }) => [s.softCard, { gap: 8 }, pressed && s.pressed]}>
+          <View style={[s.row, { gap: 8 }]}><CalendarHeart size={16} color={c.forest} /><Text style={s.eyebrow}>{(event.tomorrow ? `Ertaga — ${event.day.title}` : `Bugun — ${event.day.title}`).toUpperCase()}</Text></View>
+          <Text style={s.text}>{event.day.text}</Text>
+          <Text style={s.tiny}>{event.day.source} · Sana taxminiy · Taqvimni ochish</Text>
+        </Pressable>)}
         <View style={s.hero}><Ornament /><Text style={[s.eyebrow, { color: '#D0DBCA' }]}>QALB UCHUN BIR LAHZA</Text><Text style={s.heroTitle}>Istig‘for bilan{ '\n' }yangidan boshlang.</Text><Pressable accessibilityRole="button" onPress={() => { if (current) { setTab('istighfar'); setIstighfarView('counter'); } else addReflection(); }} style={({ pressed }) => [s.heroAction, pressed && s.pressed]}><Text style={s.medium}>{current ? 'Davom etish' : 'Birinchi niyatim'}</Text><ArrowRight size={18} color={c.forest} /></Pressable></View>
         <View style={[s.card, { gap: 15 }]}><View style={s.between}><View style={[s.row, { gap: 8 }]}><CircleDot size={17} color={c.forest} /><Text style={s.medium}>Bugungi istig‘for</Text></View><Text style={s.muted}><Text style={{ color: c.forest, fontFamily: fonts.bold }}>{total}</Text> / {target}</Text></View><View style={s.progressTrack}><View style={[s.progressFill, { width: `${target ? Math.min(100, total / target * 100) : 0}%` }]} /></View><Text style={s.muted}>{target ? `${active.length} ta faol niyat · o‘zingiz tanlagan kunlik reja` : 'Niyat qo‘shing va o‘z sur’atingizda boshlang.'}</Text></View>
-        {!!yesterdayIntention && !privateHidden && <View style={[s.softCard, { gap: 8 }]}><View style={[s.row, { gap: 8 }]}><Moon size={16} color={c.forest} /><Text style={s.eyebrow}>KECHA O‘ZINGIZGA QOLDIRGAN NIYAT</Text></View><Text style={s.text}>{yesterdayIntention}</Text></View>}
+        {!!yesterdayIntention && !privateHidden && <View style={[s.softCard, { gap: 8 }]}><View style={[s.row, { gap: 8 }]}><Moon size={16} color={c.forest} /><Text style={s.eyebrow}>KECHA O‘ZINGIZGA QOLDIRGAN NIYAT</Text></View><Text raw style={s.text}>{yesterdayIntention}</Text></View>}
         <View>
           <View style={s.between}><Text style={s.heading}>Bugungi odatlar</Text><View style={[s.row, { gap: 8 }]}><View style={s.pill}><Text style={[s.tiny, { color: c.forest }]}>{doneHabits} / {todaysHabits.length}</Text></View><IconButton label="Odatlarni tahrirlash" onPress={() => setSheet('habits')}><Pencil size={17} color={c.forest} strokeWidth={1.6} /></IconButton></View></View>
-          {todaysHabits.map(h => { const done = completedHabits.includes(h.id); const Icon = h.icon; return <Pressable key={h.id} accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={h.title} onPress={() => update(old => toggleHabit(old, h.id, localDateKey()))} style={({ pressed }) => [s.habitRow, pressed && s.pressed]}><View style={s.habitIcon}><Icon size={19} color={c.forest} strokeWidth={1.5} /></View><View style={{ flex: 1, gap: 2 }}><Text style={[s.medium, done && { color: c.muted }]}>{h.title}</Text><Text style={s.muted}>{h.subtitle}</Text></View><View style={[s.check, done && s.checkOn]}>{done && <Check size={16} color="white" />}</View></Pressable>; })}
+          {todaysHabits.map(h => { const done = completedHabits.includes(h.id); const Icon = h.icon; return <Pressable key={h.id} accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={h.custom ? h.title : t(h.title)} onPress={() => update(old => toggleHabit(old, h.id, localDateKey()))} style={({ pressed }) => [s.habitRow, pressed && s.pressed]}><View style={s.habitIcon}><Icon size={19} color={c.forest} strokeWidth={1.5} /></View><View style={{ flex: 1, gap: 2 }}><Text raw={h.custom} style={[s.medium, done && { color: c.muted }]}>{h.title}</Text><Text style={s.muted}>{h.subtitle}</Text></View><View style={[s.check, done && s.checkOn]}>{done && <Check size={16} color="white" />}</View></Pressable>; })}
           <Pressable accessibilityRole="button" onPress={() => setSheet('habits')} style={[s.linkButton, { alignSelf: 'flex-start' }]}><Plus size={15} color={c.forest} /><Text style={s.source}>Shaxsiy odat qo‘shish</Text></Pressable>
         </View>
         <View style={[s.softCard, { gap: 4 }]}>
@@ -368,11 +592,11 @@ function Rahmat() {
         <Segmented options={[{ key: 'counter', label: 'Niyatlarim' }, { key: 'adhkar', label: 'Kunlik zikrlar' }] as const} value={istighfarView} onChange={setIstighfarView} />
         {istighfarView === 'adhkar' ? <AdhkarPanel data={data} day={day} update={update} openSource={openSource} onTap={tap} progress={tasbih} setProgress={setTasbih} /> : <>
           {!current ? <View style={[s.card, s.empty]}><Sprout size={42} color={c.forest} strokeWidth={1.2} /><Text style={s.heading}>Yangi niyatdan boshlang</Text><Text style={[s.text, { textAlign: 'center' }]}>Shaxsiy niyat qo‘shing va kunlik rejani o‘zingiz tanlang — masalan, kuniga bir mahal 33 ta.</Text><Button onPress={addReflection}>Niyat qo‘shish</Button></View> : <>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>{active.map((r, index) => <Pressable key={r.id} accessibilityRole="button" accessibilityState={{ selected: r.id === current.id }} onPress={() => { setSelectedId(r.id); setSlot(0); }} style={[s.chip, r.id === current.id && s.chipOn]}><Text style={[s.medium, r.id === current.id && { color: c.paper }]}>{reflectionName(index, r.label)}</Text></Pressable>)}</ScrollView>
-            <View style={[s.row, { justifyContent: current.sessions > 2 ? 'space-between' : 'center', gap: current.sessions > 2 ? 0 : 28 }]}>{counts.map((count, i) => <Pressable key={i} accessibilityRole="button" accessibilityLabel={`${i + 1}-mahal, ${count} / ${current.target}, ${data.settings.times[i]}`} accessibilityState={{ selected: slotIndex === i }} onPress={() => setSlot(i)} style={{ alignItems: 'center', gap: 7, minWidth: 48, paddingVertical: 4 }}><View style={[s.roundSlot, slotIndex === i && { borderColor: c.forest, backgroundColor: c.sage }, count >= current.target && s.checkOn]}>{count >= current.target ? <Check size={17} color="white" /> : <Text style={s.medium}>{i + 1}</Text>}</View><Text style={s.tiny}>{data.settings.times[i]}</Text></Pressable>)}</View>
-            <View style={{ alignItems: 'center', gap: 10, paddingVertical: 3 }}><Text style={{ fontSize: 29, color: c.forest, marginBottom: 5 }}>أَسْتَغْفِرُ اللّٰهَ</Text><Text style={s.eyebrow}>ASTAG‘FIRULLOH</Text><Text style={s.muted}>Allohdan mag‘firat so‘rayman</Text></View>
-            <Pressable accessibilityRole="button" accessibilityLabel={`Istig‘for qo‘shish. Hozir ${counts[slotIndex]} ta, maqsad ${current.target}`} disabled={(counts[slotIndex] ?? 0) >= current.target} onPress={() => addCount()} style={({ pressed }) => [s.counter, pressed && { backgroundColor: '#DDE6D8' }]}><Svg width={258} height={258} style={{ position: 'absolute' }}><Circle cx="129" cy="129" r="120" fill="none" stroke="#D7DFD1" strokeWidth="2" /><Circle cx="129" cy="129" r="120" fill="none" stroke={c.forest} strokeWidth="3" strokeLinecap="round" strokeDasharray={`${(counts[slotIndex] ?? 0) / current.target * 754} 754`} rotation="-90" origin="129,129" /></Svg><Text style={s.counterNumber}>{counts[slotIndex]}</Text><Text style={s.muted}>/ {current.target}</Text><Text style={[s.tiny, { marginTop: 14, color: c.forest }]}>{(counts[slotIndex] ?? 0) >= current.target ? 'BU MAHAL YAKUNLANDI' : 'SANASH UCHUN BOSING'}</Text></Pressable>
-            <View style={{ alignItems: 'center', gap: 5 }}><Text style={s.medium}>{slotIndex + 1}-mahal · {slotNames[slotIndex]}</Text><Text style={s.muted}>Bugun bu niyat uchun {getReflectionTotal(data, current, day)} / {reflectionTarget(current)} · kuniga {current.sessions} × {current.target}</Text><View style={[s.row, { gap: 18 }]}><Pressable accessibilityRole="button" accessibilityLabel="Oxirgi sanoqni qaytarish" disabled={counts[slotIndex] === 0} onPress={() => addCount(-1)} style={[s.linkButton, counts[slotIndex] === 0 && { opacity: .35 }]}><Undo2 size={15} color={c.muted} /><Text style={s.muted}>Bittasini qaytarish</Text></Pressable><Pressable accessibilityRole="button" onPress={() => openGoal(current.id)} style={s.linkButton}><Pencil size={14} color={c.forest} /><Text style={s.source}>Rejani o‘zgartirish</Text></Pressable></View></View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>{active.map((r, index) => <Pressable key={r.id} accessibilityRole="button" accessibilityState={{ selected: r.id === current.id }} onPress={() => { setSelectedId(r.id); setSlot(0); }} style={[s.chip, r.id === current.id && s.chipOn]}><Text raw={!privateHidden} style={[s.medium, r.id === current.id && { color: c.paper }]}>{reflectionName(index, r.label)}</Text></Pressable>)}</ScrollView>
+            <View style={[s.row, { justifyContent: current.sessions > 2 ? 'space-between' : 'center', gap: current.sessions > 2 ? 0 : 28 }]}>{counts.map((count, i) => <Pressable key={i} accessibilityRole="button" accessibilityLabel={t(`${i + 1}-mahal, ${count} / ${current.target}, ${sessionTag(i)}`)} accessibilityState={{ selected: slotIndex === i }} onPress={() => setSlot(i)} style={{ alignItems: 'center', gap: 7, minWidth: 48, paddingVertical: 4 }}><View style={[s.roundSlot, slotIndex === i && { borderColor: c.forest, backgroundColor: c.sage }, count >= current.target && s.checkOn]}>{count >= current.target ? <Check size={17} color="white" /> : <Text style={s.medium}>{i + 1}</Text>}</View><Text style={s.tiny}>{sessionTag(i)}</Text></Pressable>)}</View>
+            <View style={{ alignItems: 'center', gap: 10, paddingVertical: 3 }}><Text style={{ fontSize: 29, color: c.forest, marginBottom: 5 }}>أَسْتَغْفِرُ اللّٰهَ</Text><Text style={s.eyebrow}>ASTAG‘FIRULLOH</Text><Text style={s.muted}>Allohdan mag‘firat so‘rayman</Text><AdhkarAudio id="astaghfirulloh" label="Astag‘firulloh" /></View>
+            <Pressable accessibilityRole="button" accessibilityLabel={t(`Istig‘for qo‘shish. Hozir ${counts[slotIndex]} ta, maqsad ${current.target}`)} disabled={(counts[slotIndex] ?? 0) >= current.target} onPress={() => addCount()} style={({ pressed }) => [s.counter, pressed && { backgroundColor: '#DDE6D8' }]}><Svg width={258} height={258} style={{ position: 'absolute' }}><Circle cx="129" cy="129" r="120" fill="none" stroke="#D7DFD1" strokeWidth="2" /><Circle cx="129" cy="129" r="120" fill="none" stroke={c.forest} strokeWidth="3" strokeLinecap="round" strokeDasharray={`${(counts[slotIndex] ?? 0) / current.target * 754} 754`} rotation="-90" origin="129,129" /></Svg><Text style={s.counterNumber}>{counts[slotIndex]}</Text><Text style={s.muted}>/ {current.target}</Text><Text style={[s.tiny, { marginTop: 14, color: c.forest }]}>{(counts[slotIndex] ?? 0) >= current.target ? 'BU MAHAL YAKUNLANDI' : 'SANASH UCHUN BOSING'}</Text></Pressable>
+            <View style={{ alignItems: 'center', gap: 5 }}><Text style={s.medium}>{slotIndex + 1}-mahal · {sessionName(slotIndex)}</Text><Text style={s.muted}>Bugun bu niyat uchun {getReflectionTotal(data, current, day)} / {reflectionTarget(current)} · kuniga {current.sessions} × {current.target}</Text><View style={[s.row, { gap: 18 }]}><Pressable accessibilityRole="button" accessibilityLabel={t('Oxirgi sanoqni qaytarish')} disabled={counts[slotIndex] === 0} onPress={() => addCount(-1)} style={[s.linkButton, counts[slotIndex] === 0 && { opacity: .35 }]}><Undo2 size={15} color={c.muted} /><Text style={s.muted}>Bittasini qaytarish</Text></Pressable><Pressable accessibilityRole="button" onPress={() => openGoal(current.id)} style={s.linkButton}><Pencil size={14} color={c.forest} /><Text style={s.source}>Rejani o‘zgartirish</Text></Pressable></View></View>
             {(counts[slotIndex] ?? 0) >= current.target && slotIndex < current.sessions - 1 && <Button onPress={() => setSlot(slotIndex + 1)}>Keyingi mahalga o‘tish</Button>}
           </>}
           <Pressable accessibilityRole="button" onPress={() => setSheet('about')} style={[s.softCard, { gap: 6 }]}><View style={[s.row, { gap: 7 }]}><Heart size={15} color={c.forest} /><Text style={s.medium}>O‘zingiz tanlagan maqsad</Text></View><Text style={s.muted}>Kunlik reja — shaxsiy rejangiz. Sanoq mag‘firatning o‘lchovi emas.</Text><Text style={[s.source, { marginTop: 4 }]}>Mazmuni va manbasi</Text></Pressable>
@@ -393,12 +617,12 @@ function Rahmat() {
               <Text style={s.muted}>Uch qisqa savol: shukr, saboq va ertangi niyat. Bir-ikki daqiqa yetarli.</Text>
               <Button onPress={() => setSheet('evening')}>Bugungi muhosabani yozish</Button>
             </>}
-            {!!yesterdayIntention && <Text style={s.muted}>Kecha qoldirgan niyatingiz: {yesterdayIntention}</Text>}
+            {!!yesterdayIntention && <Text style={s.muted}>Kecha qoldirgan niyatingiz: <Text raw>{yesterdayIntention}</Text></Text>}
           </View>
           <Button onPress={addReflection}>＋  Yangi niyat qo‘shish</Button>
           <View style={s.between}><Text style={s.heading}>{archived ? 'Arxivdagi niyatlar' : 'Faol niyatlar'}</Text><Pressable accessibilityRole="button" onPress={() => setArchived(v => !v)} style={s.linkButton}><Archive size={15} color={c.forest} /><Text style={s.source}>{archived ? 'Faollar' : 'Arxiv'}</Text></Pressable></View>
           {data.reflections.filter(r => r.archived === archived).length === 0 && <View style={s.empty}><BookHeart size={42} color={c.muted} strokeWidth={1.2} /><Text style={s.heading}>{archived ? 'Arxiv hozircha bo‘sh' : 'Har kun — yangi imkon'}</Text><Text style={[s.muted, { textAlign: 'center' }]}>{archived ? 'Tanaffusga qo‘yilgan niyatlar shu yerda turadi.' : 'Birinchi niyatingizni qo‘shing. Oddiy nomning o‘zi yetarli.'}</Text></View>}
-          {data.reflections.filter(r => r.archived === archived).map(r => { const sum = getReflectionTotal(data, r, day); const goalTotal = reflectionTarget(r); return <View key={r.id} style={[s.card, { gap: 13 }]}><View style={s.between}><View style={{ flex: 1, gap: 4 }}><Text style={s.heading}>{r.label}</Text><Text style={s.tiny}>{uzDate(new Date(r.createdAt))} · {r.archived ? 'Tanaffusda' : `Kuniga ${r.sessions} × ${r.target}`}</Text></View><BookHeart size={22} color={c.forest} strokeWidth={1.3} /></View>{r.note ? <Text style={s.text}>{r.note}</Text> : null}{!r.archived && <><View style={s.progressTrack}><View style={[s.progressFill, { width: `${Math.min(100, sum / goalTotal * 100)}%` }]} /></View><View style={s.between}><Text style={s.muted}>Bugun {sum} / {goalTotal}</Text><Pressable accessibilityRole="button" onPress={() => { setSelectedId(r.id); setSlot(0); setTab('istighfar'); setIstighfarView('counter'); }} style={s.linkButton}><Text style={s.source}>Istig‘for aytish</Text><ArrowRight size={15} color={c.forest} /></Pressable></View></>}<View style={[s.between, { borderTopWidth: 1, borderTopColor: c.line, paddingTop: 6 }]}><Pressable accessibilityRole="button" onPress={() => update(old => ({ ...old, reflections: old.reflections.map(item => item.id === r.id ? { ...item, archived: !item.archived } : item) }))} style={s.linkButton}><Archive size={15} color={c.muted} /><Text style={s.muted}>{r.archived ? 'Faollashtirish' : 'Tanaffusga qo‘yish'}</Text></Pressable>{!r.archived && <Pressable accessibilityRole="button" onPress={() => openGoal(r.id)} style={s.linkButton}><Pencil size={14} color={c.forest} /><Text style={s.source}>Reja</Text></Pressable>}<IconButton label={`${r.label} ni o‘chirish`} onPress={() => setDeleteId(r.id)}><Trash2 size={17} color={c.danger} /></IconButton></View></View>; })}
+          {data.reflections.filter(r => r.archived === archived).map(r => { const sum = getReflectionTotal(data, r, day); const goalTotal = reflectionTarget(r); return <View key={r.id} style={[s.card, { gap: 13 }]}><View style={s.between}><View style={{ flex: 1, gap: 4 }}><Text raw style={s.heading}>{r.label}</Text><Text style={s.tiny}>{uzDate(new Date(r.createdAt))} · {r.archived ? 'Tanaffusda' : `Kuniga ${r.sessions} × ${r.target}`}</Text></View><BookHeart size={22} color={c.forest} strokeWidth={1.3} /></View>{r.note ? <Text raw style={s.text}>{r.note}</Text> : null}{!r.archived && <><View style={s.progressTrack}><View style={[s.progressFill, { width: `${Math.min(100, sum / goalTotal * 100)}%` }]} /></View><View style={s.between}><Text style={s.muted}>Bugun {sum} / {goalTotal}</Text><Pressable accessibilityRole="button" onPress={() => { setSelectedId(r.id); setSlot(0); setTab('istighfar'); setIstighfarView('counter'); }} style={s.linkButton}><Text style={s.source}>Istig‘for aytish</Text><ArrowRight size={15} color={c.forest} /></Pressable></View></>}<View style={[s.between, { borderTopWidth: 1, borderTopColor: c.line, paddingTop: 6 }]}><Pressable accessibilityRole="button" onPress={() => update(old => ({ ...old, reflections: old.reflections.map(item => item.id === r.id ? { ...item, archived: !item.archived } : item) }))} style={s.linkButton}><Archive size={15} color={c.muted} /><Text style={s.muted}>{r.archived ? 'Faollashtirish' : 'Tanaffusga qo‘yish'}</Text></Pressable>{!r.archived && <Pressable accessibilityRole="button" onPress={() => openGoal(r.id)} style={s.linkButton}><Pencil size={14} color={c.forest} /><Text style={s.source}>Reja</Text></Pressable>}<IconButton raw label={`${r.label} — ${t('niyatni o‘chirish')}`} onPress={() => setDeleteId(r.id)}><Trash2 size={17} color={c.danger} /></IconButton></View></View>; })}
           {history.length > 0 && <View style={{ gap: 10 }}>
             <Text style={s.heading}>Oldingi muhosabalar</Text>
             {history.map(({ dateKey, entry }) => { const open = openEvening === dateKey; return <View key={dateKey} style={[s.card, { gap: 10, paddingVertical: 8 }]}>
@@ -413,26 +637,47 @@ function Rahmat() {
       {tab === 'reminders' && <>
         <View style={{ gap: 10 }}><Text style={s.eyebrow}>KUN DAVOMIDA YONINGIZDA</Text><Text style={s.title}>Yaxshilikni{ '\n' }yodga oling.</Text><Text style={s.muted}>Kuningizga mos, muloyim eslatmalar.</Text></View>
         {Platform.OS === 'web' && <View style={[s.softCard, { gap: 10 }]}><Text style={s.medium}>{pwa.installed ? 'Rahmat bosh ekraningizda' : 'Rahmatni telefoningizga o‘rnating'}</Text><Text style={s.muted}>{pwa.installed ? 'Eslatmalarni yoqing va ruxsat so‘ralganda “Ruxsat berish”ni tanlang.' : pwa.ios ? 'Safari → Ulashish → Bosh ekranga qo‘shish → Qo‘shish. So‘ng Rahmat belgisidan ochib, bildirishnomalarni yoqing.' : 'Brauzer menyusidan “Ilovani o‘rnatish” yoki “Bosh ekranga qo‘shish”ni tanlang.'}</Text><Text style={s.muted}>iPhone eslatmalari uchun iOS 16.4 yoki yangiroq versiya kerak. Eslatma vaqtlari va telefonning bildirishnoma manzili serverda saqlanadi; niyat matnlari yuborilmaydi.</Text>{!pwa.secure && <Text style={[s.muted, { color: c.danger }]}>O‘rnatish va eslatmalar uchun xavfsiz HTTPS havolasidan oching.</Text>}</View>}
-        <View style={[s.card, { gap: 12 }]}><View style={s.between}><View style={[s.row, { gap: 10, flex: 1 }]}><BellRing size={21} color={c.forest} /><Text style={[s.medium, { flex: 1 }]}>Bildirishnomalar</Text></View><Switch accessibilityLabel="Bildirishnomalarni yoqish" value={data.settings.enabled && notificationState?.status === 'enabled'} onValueChange={value => void applySettings(value)} disabled={busy} trackColor={{ false: '#D3D8CE', true: c.forest }} thumbColor={c.white} /></View><Text style={s.muted}>{notificationState?.status === 'denied' ? 'Ruxsat berilmagan. Telefon sozlamalarini oching.' : data.settings.enabled && notificationState?.status === 'enabled' ? 'Yoqilgan · shaxsiy qaydlarsiz eslatmalar' : 'Istig‘for va Sunnat uchun eslatmalarni yoqing.'}</Text>{notificationState?.status === 'denied' && Platform.OS !== 'web' && <Button secondary onPress={() => Linking.openSettings().catch(() => showToast('Telefon sozlamalarini qo‘lda oching.'))}>Telefon sozlamalari</Button>}{notificationState?.status === 'denied' && Platform.OS === 'web' && <Text style={s.muted}>iPhone: Sozlamalar → Bildirishnomalar → Rahmat → Ruxsat berish.</Text>}{notificationError ? <Text style={[s.muted, { color: c.danger }]}>{notificationError}</Text> : null}</View>
+        <View style={[s.card, { gap: 12 }]}><View style={s.between}><View style={[s.row, { gap: 10, flex: 1 }]}><BellRing size={21} color={c.forest} /><Text style={[s.medium, { flex: 1 }]}>Bildirishnomalar</Text></View><Switch accessibilityLabel={t('Bildirishnomalarni yoqish')} value={data.settings.enabled && notificationState?.status === 'enabled'} onValueChange={value => void applySettings(value)} disabled={busy} trackColor={{ false: '#D3D8CE', true: c.forest }} thumbColor={c.white} /></View><Text style={s.muted}>{notificationState?.status === 'denied' ? 'Ruxsat berilmagan. Telefon sozlamalarini oching.' : data.settings.enabled && notificationState?.status === 'enabled' ? 'Yoqilgan · shaxsiy qaydlarsiz eslatmalar' : 'Istig‘for va Sunnat uchun eslatmalarni yoqing.'}</Text>{notificationState?.status === 'denied' && Platform.OS !== 'web' && <Button secondary onPress={() => Linking.openSettings().catch(() => showToast('Telefon sozlamalarini qo‘lda oching.'))}>Telefon sozlamalari</Button>}{notificationState?.status === 'denied' && Platform.OS === 'web' && <Text style={s.muted}>iPhone: Sozlamalar → Bildirishnomalar → Rahmat → Ruxsat berish.</Text>}{notificationError ? <Text style={[s.muted, { color: c.danger }]}>{notificationError}</Text> : null}</View>
         <View style={s.stack}><Text style={s.heading}>Sizning faol kuningiz</Text><Text style={s.muted}>Eslatmalar shu oraliqda rejalashtiriladi.</Text><View style={[s.row, { gap: 12 }]}>{(['dayStart', 'dayEnd'] as const).map(key => <View key={key} style={[s.card, { flex: 1, padding: 14, gap: 10 }]}><Text style={s.tiny}>{key === 'dayStart' ? 'BOSHLANISHI' : 'TUGASHI'}</Text><Text style={s.heading}>{hour(draft[key])}</Text><View style={s.between}><IconButton disabled={busy} label={`${key === 'dayStart' ? 'Boshlanish' : 'Tugash'} vaqtini bir soat kamaytirish`} onPress={() => setSettingsDraft({ ...draft, [key]: Math.max(key === 'dayStart' ? 0 : 1, draft[key] - 1) })}><Minus size={16} color={c.forest} /></IconButton><IconButton disabled={busy} label={`${key === 'dayStart' ? 'Boshlanish' : 'Tugash'} vaqtini bir soat oshirish`} onPress={() => setSettingsDraft({ ...draft, [key]: Math.min(key === 'dayStart' ? 23 : 24, draft[key] + 1) })}><Plus size={16} color={c.forest} /></IconButton></View></View>)}</View></View>
-        <View style={s.stack}><Text style={s.heading}>Istig‘for vaqtlari</Text><Text style={s.muted}>{slots === 0 ? 'Faol niyat yo‘q — istig‘for eslatmasi kelmaydi.' : `Eslatma faol niyatlaringizdagi eng ko‘p mahal soniga qarab keladi: hozir kuniga ${slots} ta, ro‘yxatdagi birinchi ${slots} vaqtda.`}</Text>{draft.times.map((t, i) => <View key={i} style={[s.between, i >= slots && { opacity: .55 }]}><View style={[s.row, { gap: 12, flex: 1 }]}><View style={[s.roundSlot, { width: 33, height: 33, flexShrink: 0 }]}><Text style={s.muted}>{i + 1}</Text></View><Text style={[s.text, { flex: 1 }]}>{slotNames[i]}</Text></View><TextInput editable={!busy} accessibilityLabel={`${i + 1}-mahal vaqti`} value={t} maxLength={5} autoCorrect={false} keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'default'} onChangeText={value => setSettingsDraft({ ...draft, times: draft.times.map((v, index) => index === i ? value : v) })} style={[s.input, { width: 82, flexShrink: 0, textAlign: 'center', paddingHorizontal: 8 }]} /></View>)}</View>
+        <View style={s.stack}>
+          <Text style={s.heading}>Istig‘for vaqtlari</Text>
+          <Segmented options={anchorOptions} value={draft.istighfarAnchor} onChange={value => setSettingsDraft({ ...draft, istighfarAnchor: value })} disabled={busy} />
+          {draft.istighfarAnchor === 'clock' ? <>
+            <Text style={s.muted}>{slots === 0 ? 'Faol niyat yo‘q — istig‘for eslatmasi kelmaydi.' : `Eslatma faol niyatlaringizdagi eng ko‘p mahal soniga qarab keladi: hozir kuniga ${slots} ta, ro‘yxatdagi birinchi ${slots} vaqtda.`}</Text>
+            {draft.times.map((time, i) => <View key={i} style={[s.between, i >= slots && { opacity: .55 }]}><View style={[s.row, { gap: 12, flex: 1 }]}><View style={[s.roundSlot, { width: 33, height: 33, flexShrink: 0 }]}><Text style={s.muted}>{i + 1}</Text></View><Text style={[s.text, { flex: 1 }]}>{slotNames[i]}</Text></View><TextInput editable={!busy} accessibilityLabel={t(`${i + 1}-mahal vaqti`)} value={time} maxLength={5} autoCorrect={false} keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'default'} onChangeText={value => setSettingsDraft({ ...draft, times: draft.times.map((v, index) => index === i ? value : v) })} style={[s.input, { width: 82, flexShrink: 0, textAlign: 'center', paddingHorizontal: 8 }]} /></View>)}
+          </> : (() => {
+            const filled = draft.prayerTimes.flatMap((time, index) => time && TIME.test(time) ? [index] : []);
+            const used = new Set(filled.slice(0, slots));
+            return <>
+              <View style={[s.softCard, { gap: 4 }]}><Text style={s.text}>{prayer.afterPrayer.text}</Text>{sourceButton(prayer.afterPrayer.source, prayer.afterPrayer.url)}</View>
+              <Text style={s.muted}>{slots === 0 ? 'Faol niyat yo‘q — istig‘for eslatmasi kelmaydi.' : `Hozir kuniga ${slots} ta: vaqti yozilgan birinchi ${slots} ta namozdan so‘ng. Kerakmas namozning vaqtini bo‘sh qoldiring.`}</Text>
+              {PRAYER_NAMES.map((name, i) => <View key={name} style={[s.between, !used.has(i) && { opacity: .55 }]}><View style={[s.row, { gap: 12, flex: 1 }]}><View style={[s.roundSlot, { width: 33, height: 33, flexShrink: 0 }]}><Moon size={14} color={c.muted} /></View><Text style={[s.text, { flex: 1 }]}>{name}</Text></View><TextInput editable={!busy} accessibilityLabel={t(`${name} namozidan so‘ng eslatma vaqti`)} value={draft.prayerTimes[i] ?? ''} placeholder="--:--" placeholderTextColor={c.muted} maxLength={5} autoCorrect={false} keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'default'} onChangeText={value => setSettingsDraft({ ...draft, prayerTimes: draft.prayerTimes.map((v, index) => index === i ? (value.trim() ? value.trim() : null) : v) })} style={[s.input, { width: 82, flexShrink: 0, textAlign: 'center', paddingHorizontal: 8 }]} /></View>)}
+              <Text style={s.muted}>{prayer.timesNotice}</Text>
+              {prayer.scholarReview.status !== 'approved' && <ReviewNotice text={prayer.scholarReview.notice} />}
+            </>;
+          })()}
+        </View>
         <View style={[s.softCard, { gap: 14 }]}><View style={[s.row, { gap: 8 }]}><Leaf size={18} color={c.forest} /><Text style={s.medium}>Sunnatdan bir eslatma</Text></View><Text style={s.muted}>Kun davomida tasodifiy vaqtlarda hadisga tayangan bir jumla — {content.reminders.length} ta eslatma ichidan.</Text><View style={s.row}>{([1, 2, 3] as const).map(n => <Pressable disabled={busy} key={n} accessibilityRole="button" accessibilityState={{ selected: draft.sunnahPerDay === n }} onPress={() => setSettingsDraft({ ...draft, sunnahPerDay: n })} style={[s.chip, { flex: 1, alignItems: 'center', paddingHorizontal: 8 }, draft.sunnahPerDay === n && s.chipOn]}><Text style={[s.medium, draft.sunnahPerDay === n && { color: c.paper }]}>{n} marta</Text></Pressable>)}</View></View>
-        <View style={[s.card, { gap: 12 }]}><View style={s.between}><View style={[s.row, { gap: 10, flex: 1 }]}><Moon size={20} color={c.forest} /><Text style={[s.medium, { flex: 1 }]}>Kechki muhosaba eslatmasi</Text></View><Switch accessibilityLabel="Kechki muhosaba eslatmasi" disabled={busy} value={!!draft.eveningTime} onValueChange={value => setSettingsDraft({ ...draft, eveningTime: value ? '21:00' : null })} trackColor={{ false: '#D3D8CE', true: c.forest }} thumbColor={c.white} /></View><Text style={s.muted}>Har kuni bitta umumiy eslatma: «Kun yakunida bir daqiqa». Javoblaringiz bildirishnomada hech qachon ko‘rinmaydi. Kunduzgi oraliqdan keyin ham bo‘lishi mumkin.</Text>{!!draft.eveningTime && <View style={s.between}><Text style={s.text}>Vaqti</Text><TextInput editable={!busy} accessibilityLabel="Kechki muhosaba vaqti" value={draft.eveningTime} maxLength={5} autoCorrect={false} keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'default'} onChangeText={value => setSettingsDraft({ ...draft, eveningTime: value })} style={[s.input, { width: 82, textAlign: 'center', paddingHorizontal: 8 }]} /></View>}</View>
+        <View style={[s.card, { gap: 12 }]}><View style={s.between}><View style={[s.row, { gap: 10, flex: 1 }]}><Moon size={20} color={c.forest} /><Text style={[s.medium, { flex: 1 }]}>Kechki muhosaba eslatmasi</Text></View><Switch accessibilityLabel={t('Kechki muhosaba eslatmasi')} disabled={busy} value={!!draft.eveningTime} onValueChange={value => setSettingsDraft({ ...draft, eveningTime: value ? '21:00' : null })} trackColor={{ false: '#D3D8CE', true: c.forest }} thumbColor={c.white} /></View><Text style={s.muted}>Har kuni bitta umumiy eslatma: «Kun yakunida bir daqiqa». Javoblaringiz bildirishnomada hech qachon ko‘rinmaydi. Kunduzgi oraliqdan keyin ham bo‘lishi mumkin.</Text>{!!draft.eveningTime && <View style={s.between}><Text style={s.text}>Vaqti</Text><TextInput editable={!busy} accessibilityLabel={t('Kechki muhosaba vaqti')} value={draft.eveningTime} maxLength={5} autoCorrect={false} keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'default'} onChangeText={value => setSettingsDraft({ ...draft, eveningTime: value })} style={[s.input, { width: 82, textAlign: 'center', paddingHorizontal: 8 }]} /></View>}</View>
+        <View style={[s.card, { gap: 12 }]}><View style={s.between}><View style={[s.row, { gap: 10, flex: 1 }]}><CalendarHeart size={20} color={c.forest} /><Text style={[s.medium, { flex: 1 }]}>Nafl ro‘za kunlari</Text></View><Switch accessibilityLabel={t('Nafl ro‘za kunlari eslatmasi')} disabled={busy} value={draft.fastingReminders} onValueChange={value => setSettingsDraft({ ...draft, fastingReminders: value })} trackColor={{ false: '#D3D8CE', true: c.forest }} thumbColor={c.white} /></View><Text style={s.muted}>Arafa, Tosuo va Ashuro kunlaridan hamda Shavvol ro‘zalaridan bir kun oldin, kechqurun soat 20:00 da bitta eslatma. Sana taxminiy hijriy hisob bo‘yicha.</Text><Pressable accessibilityRole="button" onPress={() => setSheet('calendar')} style={s.linkButton}><MoonStar size={15} color={c.forest} /><Text style={s.source}>Hijriy taqvim va ro‘za kunlari</Text></Pressable></View>
         {settingsError ? <View style={s.error}><Text style={[s.text, { color: c.danger }]}>{settingsError}</Text></View> : null}
         <Button disabled={busy} onPress={() => void applySettings()}>{busy ? 'Saqlanmoqda…' : 'Sozlamalarni saqlash'}</Button>
-        <Button secondary disabled={busy} onPress={async () => { if (busy || notificationOperation.current) return; notificationOperation.current = true; setBusy(true); setTestStatus(''); try { const result = await sendTestNotification(); const message = result.status === 'install-required' ? 'Avval Rahmatni bosh ekranga qo‘shib, o‘sha belgidan oching.' : result.status === 'unavailable' || result.status === 'preview' ? 'Bu brauzer bildirishnomalarni qo‘llamaydi.' : result.status === 'denied' ? 'Avval bildirishnomalarni yoqing.' : 'Sinov rejalashtirildi. Telefonni qulflang va bir necha soniyadan so‘ng tekshiring.'; setTestStatus(message); showToast(message); } catch (error) { const message = error instanceof Error ? error.message : 'Sinov eslatmasini yuborib bo‘lmadi.'; setTestStatus(message); showToast(message); } finally { notificationOperation.current = false; setBusy(false); } }}>Sinov eslatmasi</Button>
+        <Button secondary disabled={busy} onPress={async () => { if (busy || notificationOperation.current) return; notificationOperation.current = true; setBusy(true); setTestStatus(''); try { const result = await sendTestNotification(script); const message = result.status === 'install-required' ? 'Avval Rahmatni bosh ekranga qo‘shib, o‘sha belgidan oching.' : result.status === 'unavailable' || result.status === 'preview' ? 'Bu brauzer bildirishnomalarni qo‘llamaydi.' : result.status === 'denied' ? 'Avval bildirishnomalarni yoqing.' : 'Sinov rejalashtirildi. Telefonni qulflang va bir necha soniyadan so‘ng tekshiring.'; setTestStatus(message); showToast(message); } catch (error) { const message = error instanceof Error ? error.message : 'Sinov eslatmasini yuborib bo‘lmadi.'; setTestStatus(message); showToast(message); } finally { notificationOperation.current = false; setBusy(false); } }}>Sinov eslatmasi</Button>
         {Platform.OS === 'web' && <Button secondary disabled={busy} onPress={async () => { if (busy) return; setBusy(true); try { setTestStatus(await getTestNotificationStatus()); } catch (error) { setTestStatus(error instanceof Error ? error.message : 'Holatni tekshirib bo‘lmadi.'); } finally { setBusy(false); } }}>Sinov holatini tekshirish</Button>}
         {!!testStatus && <Text accessibilityRole="alert" style={s.muted}>{testStatus}</Text>}
         <Text style={s.muted}>Vaqtlar telefoningizning mahalliy vaqtiga mos. Sayohatdan keyin ilovani oching — vaqt mintaqasi yangilanadi. Bildirishnomalar internet aloqasi va telefon sozlamalariga qarab kechikishi mumkin.</Text>
+        <Text style={[s.heading, { marginTop: 8 }]}>Ilova sozlamalari</Text>
+        <View style={[s.card, { gap: 12 }]}><View style={[s.row, { gap: 10 }]}><Languages size={20} color={c.forest} /><Text style={[s.medium, { flex: 1 }]}>Yozuv</Text></View><Segmented raw options={scriptOptions} value={script} disabled={busy} onChange={value => { if (value !== script) void saveQuickSetting({ script: value }, value === 'cyrillic' ? 'Ilova kirill yozuviga o‘tdi.' : 'Ilova lotin yozuviga o‘tdi.'); }} /><Text style={s.muted}>Ilova matnlari, manbalar va eslatmalar tanlangan yozuvda ko‘rinadi. O‘zingiz yozgan niyat va yozuvlar o‘zgarmaydi.</Text></View>
+        <View style={[s.card, { gap: 12 }]}><View style={[s.row, { gap: 10 }]}><DatabaseBackup size={20} color={c.forest} /><Text style={[s.medium, { flex: 1 }]}>Zaxira nusxa</Text></View><Text style={s.muted}>Barcha qaydlarni maxfiy so‘z bilan shifrlangan faylga saqlang — yangi telefonga ko‘chirish yoki ehtiyot uchun.</Text><Button secondary onPress={openBackupSheet}>Zaxira va tiklash</Button></View>
         <View style={[s.card, { gap: 12 }]}><View style={[s.row, { gap: 10 }]}><LockKeyhole size={20} color={c.forest} /><Text style={[s.medium, { flex: 1 }]}>Ilova qulfi</Text><Text style={s.muted}>{lockMode === 'off' ? 'O‘chiq' : lockMode === 'app' ? 'Butun ilova' : 'Faqat Muhosaba'}</Text></View><Text style={s.muted}>Telefoningizni boshqalar ham ishlatsa, niyat va yozuvlaringizni PIN kod bilan yoping.</Text><Button secondary onPress={openLockSheet}>Qulfni sozlash</Button></View>
-        <View style={{ borderTopWidth: 1, borderTopColor: c.line, paddingTop: 14 }}><Pressable accessibilityRole="button" onPress={() => setSheet('about')} style={s.linkButton}><ShieldCheck size={17} color={c.forest} /><Text style={s.text}>Ilova va manbalar haqida</Text><ChevronRight size={17} color={c.muted} /></Pressable><Pressable accessibilityRole="button" onPress={() => setSheet('clear')} style={s.linkButton}><Trash2 size={17} color={c.danger} /><Text style={[s.text, { color: c.danger }]}>Barcha ma’lumotlarni o‘chirish</Text></Pressable><Text style={[s.tiny, { marginTop: 15, textAlign: 'center' }]}>RAHMAT · 1.1{ '\n' }Kichik qadamlar, go‘zal odatlar.</Text></View>
+        <View style={{ borderTopWidth: 1, borderTopColor: c.line, paddingTop: 14 }}><Pressable accessibilityRole="button" onPress={() => setSheet('about')} style={s.linkButton}><ShieldCheck size={17} color={c.forest} /><Text style={s.text}>Ilova va manbalar haqida</Text><ChevronRight size={17} color={c.muted} /></Pressable><Pressable accessibilityRole="button" onPress={() => setSheet('clear')} style={s.linkButton}><Trash2 size={17} color={c.danger} /><Text style={[s.text, { color: c.danger }]}>Barcha ma’lumotlarni o‘chirish</Text></Pressable><Text style={[s.tiny, { marginTop: 15, textAlign: 'center' }]}>RAHMAT · 1.2{ '\n' }Kichik qadamlar, go‘zal odatlar.</Text></View>
       </>}
     </ScrollView>
-    <View style={[s.tabbar, { paddingBottom: Math.max(insets.bottom, 10) }]}>{tabs.map(item => { const Icon = item.icon; return <Pressable key={item.key} accessibilityRole="tab" accessibilityLabel={item.label} accessibilityState={{ selected: tab === item.key }} onPress={() => setTab(item.key)} style={s.tab}><View style={[s.tabIcon, tab === item.key && { backgroundColor: c.sage }]}><Icon size={21} color={tab === item.key ? c.forest : c.muted} strokeWidth={tab === item.key ? 1.9 : 1.4} /></View><Text style={[s.tabText, tab === item.key && { color: c.forest, fontFamily: fonts.bold }]}>{item.label}</Text></Pressable>; })}</View>
+    <View style={[s.tabbar, { paddingBottom: Math.max(insets.bottom, 10) }]}>{tabs.map(item => { const Icon = item.icon; return <Pressable key={item.key} accessibilityRole="tab" accessibilityLabel={t(item.label)} accessibilityState={{ selected: tab === item.key }} onPress={() => setTab(item.key)} style={s.tab}><View style={[s.tabIcon, tab === item.key && { backgroundColor: c.sage }]}><Icon size={21} color={tab === item.key ? c.forest : c.muted} strokeWidth={tab === item.key ? 1.9 : 1.4} /></View><Text style={[s.tabText, tab === item.key && { color: c.forest, fontFamily: fonts.bold }]}>{item.label}</Text></Pressable>; })}</View>
     {!!toast && <View style={s.toast} accessibilityLiveRegion="polite"><Text style={[s.text, { color: c.paper, fontSize: 13 }]}>{toast}</Text></View>}
 
     <Modal transparent visible={modalOpen} animationType="fade" onRequestClose={() => { if (!busy) closeSheet(); }}><KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.modalShade}><View style={[s.sheet, { paddingBottom: Math.max(insets.bottom, 20) }]}><View style={s.handle} /><ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={s.stack}>
       {modalOpen ? sheetBody : lastSheetBody.current}
     </ScrollView></View></KeyboardAvoidingView></Modal>
-  </View></View>;
+  </View></View></ScriptProvider>;
 }
