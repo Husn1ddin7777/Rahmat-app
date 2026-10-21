@@ -1,14 +1,14 @@
 import { nextDelivery, zonedDay } from './calendar';
 import { sendPush } from './push';
-import type { DeviceContext, DeviceRecord, Env, Registration } from './types';
-import { ApiError, json, readJson, validateRegistration } from './validation';
+import type { DeviceContext, DeviceRecord, Env, StoredRegistration } from './types';
+import { ApiError, istighfarSlotsOf, json, readJson, validateRegistration } from './validation';
 
 export const DEVICE_RETENTION_MS = 90 * 86_400_000;
 const STORAGE_KEY = 'reminders';
 const MAX_ATTEMPTS = 3;
 
-function registrationKey(record: Registration): string {
-  return JSON.stringify([record.settings, record.hasActiveReflections, record.timeZone]);
+function registrationKey(record: StoredRegistration): string {
+  return JSON.stringify([record.settings, istighfarSlotsOf(record), record.timeZone]);
 }
 
 function expiresAt(record: DeviceRecord): number {
@@ -104,7 +104,8 @@ export class ReminderDevice {
       await this.persist(record);
       return json({
         status: input.settings.enabled ? 'enabled' : 'disabled',
-        scheduled: input.settings.enabled ? input.settings.sunnahPerDay + (input.hasActiveReflections ? 5 : 0) : 0,
+        scheduled: input.settings.enabled
+          ? input.settings.sunnahPerDay + input.istighfarSlots + (input.settings.eveningTime ? 1 : 0) : 0,
         nextAt: record.next?.dueAt ?? null,
       });
     }

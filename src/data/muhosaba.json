@@ -1,0 +1,14 @@
+{
+  "scholarReview": {
+    "status": "pending",
+    "notice": "Savollar matni olim tomonidan hali tasdiqlanmagan."
+  },
+  "title": "Kechki muhosaba",
+  "intro": "Kun yakunida o‘zingiz bilan bir daqiqa. Bu yerda baho ham, hisob ham yo‘q — faqat shukr, saboq va ertangi niyat.",
+  "privacy": "Javoblaringiz faqat shu qurilmada saqlanadi, hech qayerga yuborilmaydi va 30 kundan keyin o‘chib ketadi.",
+  "prompts": [
+    { "id": "gratitude", "label": "Bugun qaysi ne’mat uchun shukr qilasiz?", "placeholder": "Masalan, sog‘lik, oila, bir yaxshi suhbat…" },
+    { "id": "improve", "label": "Nimani yaxshiroq qilishni istaysiz?", "placeholder": "O‘zingizga muloyim bo‘ling: bitta kichik narsa yetarli." },
+    { "id": "intention", "label": "Ertangi kun uchun bitta kichik niyat", "placeholder": "Masalan, onamga qo‘ng‘iroq qilish." }
+  ]
+}

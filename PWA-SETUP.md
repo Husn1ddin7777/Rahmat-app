@@ -41,6 +41,8 @@ Bu buyruq VAPID kalitlarini yaratadi va Cloudflare secrets xizmatiga yuboradi. M
 
 ## Yangilash va tekshirish
 
+**1.1 versiyasiga yangilash.** `npm run deploy:pwa` web ilovani ham, serverni ham birga yangilaydi. Server eski o‘rnatilgan nusxalardan kelgan so‘rovlarni ham qabul qiladi, shuning uchun eslatmalar uzilmaydi. Ilova yangi versiyada birinchi ochilganda saqlangan qaydlar avtomatik yangi formatga o‘tadi va hech narsa o‘chmaydi; avvalgi niyatlar 5 × 100 rejasida qoladi. Yangilanishdan oldin barcha ochiq Rahmat oynalarini yoping: eski oyna yangi formatdagi qaydlarni o‘qiy olmaydi va xato ko‘rsatadi (qaydlar o‘chmaydi).
+
 Safari’da “Response served by service worker has redirections” xatosi chiqsa, boshqa Rahmat oynalarini yoping, [tiklash sahifasini](https://rahmat.husniddinizzatullayev7777.workers.dev/repair.html) Safari’da oching va **Rahmatni tiklash** ni bosing. Bu niyatlar, sanoqlar, mahalliy saqlash yoki bildirishnoma ruxsatini o‘chirmaydi. Keyin bosh ekrandagi ilovani yopib, qayta oching. Ilova va Safari ma’lumotlarini tozalash shart emas.
 
 **Sinov holatini tekshirish** tugmasi xabar hali navbatdaligini, xizmat qabul qilganini yoki rad etganini ko‘rsatadi. Xizmat qabul qilishi telefon xabarni ko‘rsatganini anglatmaydi. Ekran qulflanganda haqiqiy kelishini telefonda tekshiring.

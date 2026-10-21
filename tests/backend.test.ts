@@ -15,6 +15,7 @@ const secret = 'a'.repeat(64);
 const settings = {
   enabled: true, dayStart: 7, dayEnd: 21, sunnahPerDay: 3 as const,
   times: ['08:00', '11:00', '14:00', '17:00', '20:00'],
+  eveningTime: null as string | null,
 };
 const base64 = (bytes: ArrayBuffer | Uint8Array): string => Buffer.from(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)).toString('base64url');
 const bytes = (value: string): Uint8Array<ArrayBuffer> => Uint8Array.from(Buffer.from(value, 'base64url'));
@@ -37,7 +38,7 @@ const fixtures = (async () => {
 })();
 
 async function registration(overrides: Partial<Registration> = {}): Promise<Registration> {
-  return { subscription: (await fixtures).subscription, settings: { ...settings, times: [...settings.times] }, timeZone: 'Asia/Tashkent', hasActiveReflections: true, ...overrides };
+  return { subscription: (await fixtures).subscription, settings: { ...settings, times: [...settings.times] }, timeZone: 'Asia/Tashkent', istighfarSlots: 5, ...overrides };
 }
 
 function compileModule<T>(file: string, dependencies: Record<string, unknown>, extras: Record<string, unknown> = {}): T {
@@ -119,7 +120,7 @@ test('backend: five generic prompts plus three unique public Sunnah reminders st
 });
 
 test('backend: inactive reflections remove only the five generic slots; disabled settings remove everything', async () => {
-  const input = await registration({ hasActiveReflections: false });
+  const input = await registration({ istighfarSlots: 0 });
   assert.equal(calendar.deliveriesForDay(input, '2026-09-27').length, 3);
   assert.equal(calendar.nextDelivery({ ...input, settings: { ...settings, enabled: false } }, now), null);
 });
@@ -146,7 +147,8 @@ test('backend: registration rejects private fields, malformed keys, timezone and
   const input = await registration();
   assert.deepEqual(await validation.validateRegistration(input, now), input);
   for (const change of [
-    { reflection: 'private text' }, { timeZone: 'Invalid/City' }, { hasActiveReflections: 1 },
+    { reflection: 'private text' }, { timeZone: 'Invalid/City' }, { hasActiveReflections: 1 }, { istighfarSlots: 6 },
+    { istighfarSlots: 2.5 }, { istighfarSlots: undefined }, { settings: { ...settings, eveningTime: '25:00' } },
     { settings: { ...settings, enabled: 'true' } },
     { subscription: { ...input.subscription, keys: { ...input.subscription.keys, auth: 'abc' } } },
     { subscription: { ...input.subscription, expirationTime: now - 1 } },
@@ -348,4 +350,34 @@ test('backend: Web Push uses aes128gcm and valid VAPID; encrypted body decrypts 
   while (plaintext[end] === 0) end -= 1;
   assert.equal(plaintext[end], 2);
   assert.deepEqual(JSON.parse(new TextDecoder().decode(plaintext.slice(0, end))), delivery.notice);
+});
+
+test('backend: older installed web apps that send only the active flag keep five daily prompts', async () => {
+  const input = await registration();
+  const legacy = { subscription: input.subscription, settings: { ...settings }, timeZone: 'Asia/Tashkent', hasActiveReflections: true };
+  delete (legacy.settings as { eveningTime?: unknown }).eveningTime;
+  const parsed = await validation.validateRegistration(legacy, now);
+  assert.equal(parsed.istighfarSlots, 5);
+  assert.equal(parsed.settings.eveningTime, null);
+  assert.equal((await validation.validateRegistration({ ...legacy, hasActiveReflections: false }, now)).istighfarSlots, 0);
+  await assert.rejects(validation.validateRegistration({ ...legacy, istighfarSlots: 5 }, now), validation.ApiError, 'both forms at once are ambiguous');
+});
+
+test('backend: a stored record from before routines still schedules five prompts', async () => {
+  const input = await registration();
+  const { istighfarSlots: _unused, ...rest } = input;
+  const stored = { ...rest, hasActiveReflections: true };
+  assert.equal(calendar.deliveriesForDay(stored, '2026-09-27').filter((item) => item.notice.screen === 'istighfar').length, 5);
+  assert.equal(validation.istighfarSlotsOf({}), 0);
+});
+
+test('backend: routine slots and an evening prompt after the daytime window are both delivered', async () => {
+  const input = await registration({ istighfarSlots: 2, settings: { ...settings, eveningTime: '21:30' } });
+  const day = calendar.deliveriesForDay(input, '2026-09-27');
+  assert.equal(day.filter((item) => item.notice.screen === 'istighfar').length, 2);
+  const evening = day.find((item) => item.notice.screen === 'reflections')!;
+  assert.equal(evening.dueAt, Date.parse('2026-09-27T16:30:00Z'));
+  assert.equal(evening.expiresAt - evening.dueAt, 300_000, 'not cut off by the 21:00 daytime end');
+  assert.equal(evening.notice.url, '/?screen=reflections');
+  assert.equal(evening.notice.quoteId, undefined);
 });

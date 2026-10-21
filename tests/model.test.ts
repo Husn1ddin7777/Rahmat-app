@@ -9,7 +9,7 @@ import { createStateStorage, StorageError, type SecureStoreAdapter } from '../sr
 
 const DAY = '2026-09-27';
 function reflection(id: string, archived = false): Reflection {
-  return { id, label: `Shaxsiy qayd ${id}`, note: '', archived, createdAt: '2026-09-27T06:00:00.000Z' };
+  return { id, label: `Shaxsiy qayd ${id}`, note: '', archived, createdAt: '2026-09-27T06:00:00.000Z', sessions: 5, target: 100 };
 }
 function populated(): AppState {
   return { ...createInitialState(), reflections: [reflection('one'), reflection('two')] };
@@ -99,15 +99,15 @@ test('schema rejects malformed private records, counts, dates and schedules', ()
   assert.deepEqual(validateState(state), state);
   const invalid: unknown[] = [
     null,
-    { ...state, version: 2 },
+    { ...state, version: 3 },
     { ...state, reflections: [reflection('one'), reflection('one')] },
     { ...state, reflections: Array.from({ length: MAX_REFLECTIONS + 1 }, (_, index) => reflection(`${index}`)) },
     { ...state, reflections: [{ ...reflection('one'), label: 'a'.repeat(49) }] },
     { ...state, reflections: [{ ...reflection('one'), note: 'a'.repeat(121) }] },
-    { ...state, days: { [DAY]: { counts: { one: [101, 0, 0, 0, 0] }, habits: [] } } },
-    { ...state, days: { [DAY]: { counts: { one: [1, 0, 0, 0] }, habits: [] } } },
-    { ...state, days: { [DAY]: { counts: { unknown: [1, 0, 0, 0, 0] }, habits: [] } } },
-    { ...state, days: { '2026-02-30': { counts: {}, habits: [] } } },
+    { ...state, days: { [DAY]: { counts: { one: [101, 0, 0, 0, 0] }, habits: [], adhkar: {} } } },
+    { ...state, days: { [DAY]: { counts: { one: [1, 0, 0, 0] }, habits: [], adhkar: {} } } },
+    { ...state, days: { [DAY]: { counts: { unknown: [1, 0, 0, 0, 0] }, habits: [], adhkar: {} } } },
+    { ...state, days: { '2026-02-30': { counts: {}, habits: [], adhkar: {} } } },
     { ...state, settings: { ...state.settings, enabled: 'yes' } },
     { ...state, settings: { ...state.settings, times: ['08:00', '08:00', '14:00', '17:00', '20:00'] } },
     { ...state, settings: { ...state.settings, times: ['06:00', '11:00', '14:00', '17:00', '20:00'] } },

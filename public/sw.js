@@ -72,7 +72,7 @@ self.addEventListener('message', (event) => {
 });
 
 function notificationData(payload) {
-  const screen = payload && payload.screen === 'istighfar' ? 'istighfar' : 'today';
+  const screen = payload && (payload.screen === 'istighfar' || payload.screen === 'reflections') ? payload.screen : 'today';
   const quoteId = payload && typeof payload.quoteId === 'string' && QUOTE_IDS.has(payload.quoteId) ? payload.quoteId : undefined;
   return { screen, ...(quoteId ? { quoteId } : {}) };
 }

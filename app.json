@@ -3,13 +3,15 @@
     "name": "Rahmat",
     "slug": "rahmat",
     "scheme": "rahmat",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "uz.rahmat.habits",
-      "config": { "usesNonExemptEncryption": false }
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "uz.rahmat.habits",
@@ -25,11 +27,27 @@
         "android.permission.SYSTEM_ALERT_WINDOW"
       ]
     },
-    "web": { "bundler": "metro", "name": "Rahmat — Kichik qadamlar, go‘zal odatlar", "lang": "uz" },
+    "web": {
+      "bundler": "metro",
+      "name": "Rahmat — Kichik qadamlar, go‘zal odatlar",
+      "lang": "uz"
+    },
     "plugins": [
-      ["expo-notifications", {"color":"#244D40", "icon":"./public/icons/badge-96.png"}],
+      [
+        "expo-notifications",
+        {
+          "color": "#244D40",
+          "icon": "./public/icons/badge-96.png"
+        }
+      ],
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Rahmat qulfini Face ID bilan ochish uchun ruxsat bering."
+        }
+      ]
     ]
   }
 }
